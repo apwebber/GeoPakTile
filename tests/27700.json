@@ -1,0 +1,164 @@
+{
+  "identifier": "EPSG:27700",
+  "epsg": 27700,
+  "bbox_min_x": -238375.0000149319,
+  "bbox_max_x": 900000.00000057,
+  "bbox_min_y": 0.0,
+  "bbox_max_y": 1376256.0000176653,
+  "tile_matrices": [
+    {
+      "identifier": "EPSG:27700:0",
+      "zoom_level": 0,
+      "scale_denominator": 3199999.999496063,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 5,
+      "matrix_height": 7
+    },
+    {
+      "identifier": "EPSG:27700:1",
+      "zoom_level": 1,
+      "scale_denominator": 1599999.9997480316,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 10,
+      "matrix_height": 13
+    },
+    {
+      "identifier": "EPSG:27700:2",
+      "zoom_level": 2,
+      "scale_denominator": 799999.9998740158,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 20,
+      "matrix_height": 25
+    },
+    {
+      "identifier": "EPSG:27700:3",
+      "zoom_level": 3,
+      "scale_denominator": 399999.9999370079,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 40,
+      "matrix_height": 49
+    },
+    {
+      "identifier": "EPSG:27700:4",
+      "zoom_level": 4,
+      "scale_denominator": 199999.99996850395,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 80,
+      "matrix_height": 98
+    },
+    {
+      "identifier": "EPSG:27700:5",
+      "zoom_level": 5,
+      "scale_denominator": 99999.99998425198,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 159,
+      "matrix_height": 195
+    },
+    {
+      "identifier": "EPSG:27700:6",
+      "zoom_level": 6,
+      "scale_denominator": 49999.99999212599,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 318,
+      "matrix_height": 390
+    },
+    {
+      "identifier": "EPSG:27700:7",
+      "zoom_level": 7,
+      "scale_denominator": 24999.999996062994,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 636,
+      "matrix_height": 779
+    },
+    {
+      "identifier": "EPSG:27700:8",
+      "zoom_level": 8,
+      "scale_denominator": 12499.999998031497,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 1271,
+      "matrix_height": 1558
+    },
+    {
+      "identifier": "EPSG:27700:9",
+      "zoom_level": 9,
+      "scale_denominator": 6249.9999990157485,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 2542,
+      "matrix_height": 3116
+    },
+    {
+      "identifier": "EPSG:27700:10",
+      "zoom_level": 10,
+      "scale_denominator": 3124.9999995078742,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 5083,
+      "matrix_height": 6232
+    },
+    {
+      "identifier": "EPSG:27700:11",
+      "zoom_level": 11,
+      "scale_denominator": 1562.4999997539371,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 10165,
+      "matrix_height": 12463
+    },
+    {
+      "identifier": "EPSG:27700:12",
+      "zoom_level": 12,
+      "scale_denominator": 781.2499998769686,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 20329,
+      "matrix_height": 24925
+    },
+    {
+      "identifier": "EPSG:27700:13",
+      "zoom_level": 13,
+      "scale_denominator": 390.6249999384843,
+      "top_left_x": -238375.0,
+      "top_left_y": 1376256.0,
+      "tile_width": 256,
+      "tile_height": 256,
+      "matrix_width": 40657,
+      "matrix_height": 49849
+    }
+  ]
+}

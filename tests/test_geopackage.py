@@ -121,7 +121,7 @@ def os_27700_tms() -> TileMatrixSet:
     OGC 0.28mm standardized pixel size. 14 zoom levels (0-13), consistent
     TopLeftCorner across all levels.
     """
-    data = json.loads(Path("tests/data/27700.json").read_text())
+    data = json.loads(Path("tests/27700.json").read_text())
     return TileMatrixSet.model_validate(data)
 
 

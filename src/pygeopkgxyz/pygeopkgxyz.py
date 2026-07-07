@@ -1,6 +1,27 @@
+import re
 import sqlite3
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional
+from pyproj import CRS
+
+from pygeopkgxyz.tilematrix_models import TileMatrixSet
+
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_table_name(table_name: str) -> None:
+    """Ensure table_name is safe to interpolate into SQL and spec-compliant."""
+    if not _IDENTIFIER_RE.match(table_name):
+        raise ValueError(
+            f"Invalid table_name {table_name!r}: must match "
+            f"[A-Za-z_][A-Za-z0-9_]* (letters, digits, underscore only, "
+            f"not starting with a digit)."
+        )
+    if table_name.lower().startswith("gpkg_"):
+        raise ValueError(
+            f"Invalid table_name {table_name!r}: the 'gpkg_' prefix is "
+            f"reserved by the GeoPackage spec."
+        )
 
 
 def create_tile_geopackage(
@@ -19,6 +40,8 @@ def create_tile_geopackage(
     Defaults are for standard Web Mercator XYZ tiles, EPSG:3857.
     """
 
+    _validate_table_name(table_name)
+
     gpkg_path = Path(gpkg_path)
 
     if overwrite and gpkg_path.exists():
@@ -29,7 +52,7 @@ def create_tile_geopackage(
     try:
         cur = conn.cursor()
 
-        cur.execute("PRAGMA application_id = 1196437831")
+        cur.execute("PRAGMA application_id = 1196437808")
         cur.execute("PRAGMA user_version = 10400")
 
         cur.execute(
@@ -75,28 +98,9 @@ def create_tile_geopackage(
             """
         )
 
-        if epsg == 3857:
-            srs_name = "WGS 84 / Pseudo-Mercator"
-            definition = (
-                'PROJCS["WGS 84 / Pseudo-Mercator",'
-                'GEOGCS["WGS 84",'
-                'DATUM["WGS_1984",'
-                'SPHEROID["WGS 84",6378137,298.257223563]],'
-                'PRIMEM["Greenwich",0],'
-                'UNIT["degree",0.0174532925199433]],'
-                'PROJECTION["Mercator_1SP"],'
-                'PARAMETER["central_meridian",0],'
-                'PARAMETER["scale_factor",1],'
-                'PARAMETER["false_easting",0],'
-                'PARAMETER["false_northing",0],'
-                'UNIT["metre",1],'
-                'AXIS["X",EAST],'
-                'AXIS["Y",NORTH],'
-                'AUTHORITY["EPSG","3857"]]'
-            )
-        else:
-            srs_name = f"EPSG:{epsg}"
-            definition = "undefined"
+        crs = CRS.from_epsg(epsg)
+        srs_name = crs.name
+        definition = crs.to_wkt()
 
         cur.execute(
             """
@@ -179,6 +183,9 @@ def create_tile_geopackage(
             """
         )
 
+        # table_name has been validated by _validate_table_name(), so it is
+        # safe to interpolate here (parameter binding doesn't work for
+        # identifiers).
         cur.execute(
             f"""
             CREATE TABLE IF NOT EXISTS "{table_name}" (
@@ -262,6 +269,7 @@ def ensure_zoom_level(
     tile_size: int = 256,
     extent_width: float = 40075016.68557849,
     extent_height: float = 40075016.68557849,
+    tms: Optional[TileMatrixSet] = None,
 ) -> None:
     """
     Add one gpkg_tile_matrix row for a zoom level.
@@ -270,38 +278,68 @@ def ensure_zoom_level(
     matrix_width = matrix_height = 2 ** z
     """
 
-    matrix_width = 2**z
-    matrix_height = 2**z
-
-    pixel_x_size = extent_width / matrix_width / tile_size
-    pixel_y_size = extent_height / matrix_height / tile_size
-
-    conn.execute(
-        """
-        INSERT OR IGNORE INTO gpkg_tile_matrix
-        (
-            table_name,
-            zoom_level,
-            matrix_width,
-            matrix_height,
-            tile_width,
-            tile_height,
-            pixel_x_size,
-            pixel_y_size
+    if tms is not None:
+        tm = tms.get_level(z)
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO gpkg_tile_matrix
+            (
+                table_name,
+                zoom_level,
+                matrix_width,
+                matrix_height,
+                tile_width,
+                tile_height,
+                pixel_x_size,
+                pixel_y_size
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                table_name,
+                z,
+                tm.matrix_width,
+                tm.matrix_height,
+                tm.tile_width,
+                tm.tile_height,
+                tm.pixel_x_size,
+                tm.pixel_y_size,
+            ),
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            table_name,
-            z,
-            matrix_width,
-            matrix_height,
-            tile_size,
-            tile_size,
-            pixel_x_size,
-            pixel_y_size,
-        ),
-    )
+    else:
+        # Fall back on standard levels
+        matrix_width = 2**z
+        matrix_height = 2**z
+
+        pixel_x_size = extent_width / matrix_width / tile_size
+        pixel_y_size = extent_height / matrix_height / tile_size
+
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO gpkg_tile_matrix
+            (
+                table_name,
+                zoom_level,
+                matrix_width,
+                matrix_height,
+                tile_width,
+                tile_height,
+                pixel_x_size,
+                pixel_y_size
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                table_name,
+                z,
+                matrix_width,
+                matrix_height,
+                tile_size,
+                tile_size,
+                pixel_x_size,
+                pixel_y_size,
+            ),
+        )
 
 
 def add_xyz_tiles_to_geopackage(
@@ -311,6 +349,7 @@ def add_xyz_tiles_to_geopackage(
     batch_size: int = 1000,
     tile_size: int = 256,
     replace: bool = True,
+    tms: Optional[TileMatrixSet] = None,
 ) -> None:
     """
     Add XYZ tiles to an existing GeoPackage tile table.
@@ -368,21 +407,14 @@ def add_xyz_tiles_to_geopackage(
 
     try:
         batch = []
-        zooms_seen = set()
-
         for z, x, y, tile_bytes in tiles:
             z = int(z)
             x = int(x)
             y = int(y)
 
-            if z not in zooms_seen:
-                ensure_zoom_level(
-                    conn=conn,
-                    table_name=table_name,
-                    z=z,
-                    tile_size=tile_size,
-                )
-                zooms_seen.add(z)
+            ensure_zoom_level(
+                conn=conn, table_name=table_name, z=z, tile_size=tile_size, tms=tms
+            )
 
             batch.append((z, x, y, sqlite3.Binary(tile_bytes)))
 

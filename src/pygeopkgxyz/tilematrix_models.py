@@ -4,6 +4,9 @@ from pydantic import BaseModel, Field, computed_field, field_validator, model_va
 
 OGC_PIXEL_SIZE_M = 0.00028
 
+WEB_MERCATOR_EXTENT = 20037508.342789244  # half-width of the world in meters
+WEB_MERCATOR_TILE_SIZE = 256
+
 
 class TileMatrix(BaseModel):
     """
@@ -62,6 +65,10 @@ class TileMatrixSet(BaseModel):
 
     identifier: str = Field(..., description="e.g. 'EPSG:27700'")
     epsg: int
+    bbox_min_x: float
+    bbox_max_x: float
+    bbox_min_y: float
+    bbox_max_y: float
     tile_matrices: list[TileMatrix] = Field(..., min_length=1)
 
     @field_validator("tile_matrices")
@@ -95,6 +102,16 @@ class TileMatrixSet(BaseModel):
                 f"level, got {levels}"
             )
         return self
+    
+    @model_validator(mode="after")
+    def _check_bbox_ordering(self) -> "TileMatrixSet":
+        if self.bbox_min_x >= self.bbox_max_x or self.bbox_min_y >= self.bbox_max_y:
+            raise ValueError(
+                f"bbox is inverted or zero-area: "
+                f"x=[{self.bbox_min_x}, {self.bbox_max_x}], "
+                f"y=[{self.bbox_min_y}, {self.bbox_max_y}]"
+            )
+        return self
 
     def get_level(self, zoom_level: int) -> TileMatrix:
         for tm in self.tile_matrices:
@@ -110,3 +127,59 @@ class TileMatrixSet(BaseModel):
         gpkg_tile_matrix_set / gpkg_contents.
         """
         return self.tile_matrices[0].bounds
+    
+
+
+
+
+def create_web_mercator_tms(
+    min_zoom: int = 0,
+    max_zoom: int = 19,
+    tile_size: int = WEB_MERCATOR_TILE_SIZE,
+) -> TileMatrixSet:
+    """
+    Build the standard XYZ / Web Mercator (EPSG:3857) TileMatrixSet.
+
+    This is the doubling pyramid used by OSM, Google/Bing Maps, MapLibre,
+    Leaflet, etc: one root tile at zoom 0 covering the whole world square,
+    each level doubling matrix_width/matrix_height.
+    """
+    if min_zoom < 0 or max_zoom < min_zoom:
+        raise ValueError(f"Invalid zoom range: min_zoom={min_zoom}, max_zoom={max_zoom}")
+
+    top_left_x = -WEB_MERCATOR_EXTENT
+    top_left_y = WEB_MERCATOR_EXTENT
+
+    # Pixel size at zoom 0: one tile (tile_size px) covers the full
+    # world width (2 * WEB_MERCATOR_EXTENT meters).
+    pixel_size_z0 = (2 * WEB_MERCATOR_EXTENT) / tile_size
+
+    tile_matrices = []
+    for z in range(min_zoom, max_zoom + 1):
+        matrix_size = 2 ** z
+        pixel_size = pixel_size_z0 / matrix_size
+        scale_denominator = pixel_size / OGC_PIXEL_SIZE_M
+
+        tile_matrices.append(
+            TileMatrix(
+                identifier=f"EPSG:3857:{z}",
+                zoom_level=z,
+                scale_denominator=scale_denominator,
+                top_left_x=top_left_x,
+                top_left_y=top_left_y,
+                tile_width=tile_size,
+                tile_height=tile_size,
+                matrix_width=matrix_size,
+                matrix_height=matrix_size,
+            )
+        )
+
+    return TileMatrixSet(
+        identifier="EPSG:3857",
+        epsg=3857,
+        bbox_min_x=-WEB_MERCATOR_EXTENT,
+        bbox_max_x=WEB_MERCATOR_EXTENT,
+        bbox_min_y=-WEB_MERCATOR_EXTENT,
+        bbox_max_y=WEB_MERCATOR_EXTENT,
+        tile_matrices=tile_matrices,
+    )

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 from pyproj import CRS
 
-from pygeopkgxyz.tilematrix_models import TileMatrixSet
+from pygeopkgxyz.tilematrix_models import TileMatrixSet, create_web_mercator_tms
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -27,18 +27,15 @@ def _validate_table_name(table_name: str) -> None:
 def create_tile_geopackage(
     gpkg_path: str | Path,
     table_name: str = "tiles",
-    epsg: int = 3857,
-    min_x: float = -20037508.342789244,
-    min_y: float = -20037508.342789244,
-    max_x: float = 20037508.342789244,
-    max_y: float = 20037508.342789244,
+    tms: Optional[TileMatrixSet] = None,
     overwrite: bool = False,
 ) -> None:
     """
     Create a GeoPackage tile pyramid table.
-
-    Defaults are for standard Web Mercator XYZ tiles, EPSG:3857.
     """
+
+    if tms is None:
+        tms = create_web_mercator_tms()
 
     _validate_table_name(table_name)
 
@@ -98,7 +95,7 @@ def create_tile_geopackage(
             """
         )
 
-        crs = CRS.from_epsg(epsg)
+        crs = CRS.from_epsg(tms.epsg)
         srs_name = crs.name
         definition = crs.to_wkt()
 
@@ -117,8 +114,8 @@ def create_tile_geopackage(
             """,
             (
                 srs_name,
-                epsg,
-                epsg,
+                tms.epsg,
+                tms.epsg,
                 definition,
                 srs_name,
             ),
@@ -225,13 +222,15 @@ def create_tile_geopackage(
             (
                 table_name,
                 table_name,
-                min_x,
-                min_y,
-                max_x,
-                max_y,
-                epsg,
+                tms.bbox_min_x,
+                tms.bbox_min_y,
+                tms.bbox_max_x,
+                tms.bbox_max_y,
+                tms.epsg,
             ),
         )
+        
+        min_x, min_y, max_x, max_y = tms.overall_bounds
 
         cur.execute(
             """
@@ -248,7 +247,7 @@ def create_tile_geopackage(
             """,
             (
                 table_name,
-                epsg,
+                tms.epsg,
                 min_x,
                 min_y,
                 max_x,

@@ -133,10 +133,6 @@ def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg):
 def test_other_epsg(os_tiles_z0, os_27700_tms, test_27700_gpkg):
     create_tile_geopackage(
         test_27700_gpkg,
-        epsg=27700,
-        min_x=-238375.0000149319,
-        max_x=900000.00000057,
-        min_y=0.0,
-        max_y=1376256.0000176653,
+        tms=os_27700_tms
     )
     add_xyz_tiles_to_geopackage(test_27700_gpkg, os_tiles_z0, tms=os_27700_tms)

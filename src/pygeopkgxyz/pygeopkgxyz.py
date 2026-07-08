@@ -1,58 +1,133 @@
 import re
 import sqlite3
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Literal
 from pyproj import CRS
 
-from pygeopkgxyz.tilematrix_models import TileMatrixSet, create_web_mercator_tms
+from pygeopkgxyz.tilematrix_models import TileMatrixSet
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
-def _validate_table_name(table_name: str) -> None:
-    """Ensure table_name is safe to interpolate into SQL and spec-compliant."""
-    if not _IDENTIFIER_RE.match(table_name):
-        raise ValueError(
-            f"Invalid table_name {table_name!r}: must match "
-            f"[A-Za-z_][A-Za-z0-9_]* (letters, digits, underscore only, "
-            f"not starting with a digit)."
+class GPKGXYZ:
+    def __init__(
+        self,
+        filepath,
+        tms: TileMatrixSet,
+        table_name: str = "tiles",
+        mode: Literal["ro", "rw", "rwc"] = "ro",
+    ):
+        """Create and or write tiles to a geopackage XYZ tile layer.
+
+        A tile matrix set is required in order to get the correct co-ordinates for the tiles and data extents.
+        3857 Web mercator tms set can be generated with the external function create_web_mercator_tms()
+
+        Args:
+            filepath (_type_): where the geopackage is or should be created
+            tms (TileMatrixSet): Describes the tile coordinates and data extent
+            table_name (str, optional): The name of the tile table/layer. Defaults to "tiles".
+            mode (Literal[ro, rw, rwc], optional): Sqlite3 connection modes. ro = read only, rw is
+                read-write, rwc is read, write or create. Defaults to 'ro' for safety.
+        """
+
+        self.filepath = Path(filepath)
+        self.tms = tms
+        self.table_name = table_name
+
+        self._validate_table_name()
+
+        if mode not in ("ro", "rw", "rwc"):
+            raise ValueError("Mode must be ro, rw or rwc")
+
+        if mode in ["ro", "rw"] and not self.filepath.exists():
+            raise IOError("geopackage not found")
+
+        file_string = f"{self.filepath.resolve().as_uri()}?mode={mode}"
+        self._conn = sqlite3.connect(file_string, uri=True)
+        self._cursor = self._conn.cursor()
+
+        self._cursor.execute("PRAGMA synchronous=OFF")
+        self._cursor.execute("PRAGMA journal_mode=OFF")
+        self._cursor.execute("PRAGMA locking_mode=EXCLUSIVE")
+
+        # initialize tables if needed
+        if mode != "r":
+            self._create_tables()
+
+    def __enter__(self) -> "GPKGXYZ":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        """Close the connection"""
+        self._cursor.close()
+        self._conn.close()
+
+    def has_tile(self, z: int, x: int, y: int):
+        """Check if a tile is present, using the zxy coordinates"""
+
+        self._cursor.execute(
+            f"SELECT EXISTS (SELECT 1 FROM {self.table_name} "
+            "where zoom_level=? and tile_column=? and tile_row=? LIMIT 1)",
+            (z, x, y),
         )
-    if table_name.lower().startswith("gpkg_"):
-        raise ValueError(
-            f"Invalid table_name {table_name!r}: the 'gpkg_' prefix is "
-            f"reserved by the GeoPackage spec."
-        )
 
+        row = self._cursor.fetchone()
+        return row[0] == 1
 
-def create_tile_geopackage(
-    gpkg_path: str | Path,
-    table_name: str = "tiles",
-    tms: Optional[TileMatrixSet] = None,
-    overwrite: bool = False,
-) -> None:
-    """
-    Create a GeoPackage tile pyramid table.
-    """
+    def add_tiles(
+        self,
+        tiles: Iterable[tuple[int, int, int, bytes]],
+        batch_size: int = 1000,
+    ) -> None:
+        """Add tiles to the geopackage
 
-    if tms is None:
-        tms = create_web_mercator_tms()
+        Args:
+            tiles (Iterable[tuple[int, int, int, bytes]]): List of tiles - [z, x, y, image data in bytes]
+            batch_size (int, optional): Add images in batches for speed. Defaults to 1000.
+        """
 
-    _validate_table_name(table_name)
+        insert_sql = f"""
+            INSERT OR IGNORE INTO "{self.table_name}"
+            (
+                zoom_level,
+                tile_column,
+                tile_row,
+                tile_data
+            )
+            VALUES (?, ?, ?, ?)
+        """
 
-    gpkg_path = Path(gpkg_path)
+        batch = []
+        for z, x, y, tile_bytes in tiles:
+            z = int(z)
+            x = int(x)
+            y = int(y)
 
-    if overwrite and gpkg_path.exists():
-        gpkg_path.unlink()
+            if self.has_tile(z, x, y):
+                continue
 
-    conn = sqlite3.connect(gpkg_path)
+            self._ensure_zoom_level(z)
 
-    try:
-        cur = conn.cursor()
+            batch.append((z, x, y, sqlite3.Binary(tile_bytes)))
+            if len(batch) >= batch_size:
+                self._cursor.executemany(insert_sql, batch)
+                self._conn.commit()
+                batch.clear()
 
-        cur.execute("PRAGMA application_id = 1196437808")
-        cur.execute("PRAGMA user_version = 10400")
+        if batch:
+            self._cursor.executemany(insert_sql, batch)
+            self._conn.commit()
 
-        cur.execute(
+    def _create_tables(self):
+        """Create the tables for a valid geopackage XYZ layer"""
+
+        self._cursor.execute("PRAGMA application_id = 1196437808")
+        self._cursor.execute("PRAGMA user_version = 10400")
+
+        self._cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS gpkg_spatial_ref_sys (
                 srs_name TEXT NOT NULL,
@@ -65,7 +140,7 @@ def create_tile_geopackage(
             """
         )
 
-        cur.execute(
+        self._cursor.execute(
             """
             INSERT OR IGNORE INTO gpkg_spatial_ref_sys
             VALUES
@@ -80,7 +155,7 @@ def create_tile_geopackage(
             """
         )
 
-        cur.execute(
+        self._cursor.execute(
             """
             INSERT OR IGNORE INTO gpkg_spatial_ref_sys
             VALUES
@@ -95,11 +170,11 @@ def create_tile_geopackage(
             """
         )
 
-        crs = CRS.from_epsg(tms.epsg)
+        crs = CRS.from_epsg(self.tms.epsg)
         srs_name = crs.name
         definition = crs.to_wkt()
 
-        cur.execute(
+        self._cursor.execute(
             """
             INSERT OR IGNORE INTO gpkg_spatial_ref_sys
             (
@@ -114,14 +189,14 @@ def create_tile_geopackage(
             """,
             (
                 srs_name,
-                tms.epsg,
-                tms.epsg,
+                self.tms.epsg,
+                self.tms.epsg,
                 definition,
                 srs_name,
             ),
         )
 
-        cur.execute(
+        self._cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS gpkg_contents (
                 table_name TEXT NOT NULL PRIMARY KEY,
@@ -142,7 +217,7 @@ def create_tile_geopackage(
             """
         )
 
-        cur.execute(
+        self._cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS gpkg_tile_matrix_set (
                 table_name TEXT NOT NULL PRIMARY KEY,
@@ -161,7 +236,7 @@ def create_tile_geopackage(
             """
         )
 
-        cur.execute(
+        self._cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS gpkg_tile_matrix (
                 table_name TEXT NOT NULL,
@@ -180,12 +255,9 @@ def create_tile_geopackage(
             """
         )
 
-        # table_name has been validated by _validate_table_name(), so it is
-        # safe to interpolate here (parameter binding doesn't work for
-        # identifiers).
-        cur.execute(
+        self._cursor.execute(
             f"""
-            CREATE TABLE IF NOT EXISTS "{table_name}" (
+            CREATE TABLE IF NOT EXISTS "{self.table_name}" (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 zoom_level INTEGER NOT NULL,
                 tile_column INTEGER NOT NULL,
@@ -196,14 +268,14 @@ def create_tile_geopackage(
             """
         )
 
-        cur.execute(
+        self._cursor.execute(
             f"""
-            CREATE INDEX IF NOT EXISTS "{table_name}_zxy_idx"
-            ON "{table_name}" (zoom_level, tile_column, tile_row)
+            CREATE INDEX IF NOT EXISTS "{self.table_name}_zxy_idx"
+            ON "{self.table_name}" (zoom_level, tile_column, tile_row)
             """
         )
 
-        cur.execute(
+        self._cursor.execute(
             """
             INSERT OR REPLACE INTO gpkg_contents
             (
@@ -220,19 +292,19 @@ def create_tile_geopackage(
             VALUES (?, 'tiles', ?, '', ?, ?, ?, ?, ?)
             """,
             (
-                table_name,
-                table_name,
-                tms.bbox_min_x,
-                tms.bbox_min_y,
-                tms.bbox_max_x,
-                tms.bbox_max_y,
-                tms.epsg,
+                self.table_name,
+                self.table_name,
+                self.tms.bbox_min_x,
+                self.tms.bbox_min_y,
+                self.tms.bbox_max_x,
+                self.tms.bbox_max_y,
+                self.tms.epsg,
             ),
         )
-        
-        min_x, min_y, max_x, max_y = tms.overall_bounds
 
-        cur.execute(
+        min_x, min_y, max_x, max_y = self.tms.overall_bounds
+
+        self._cursor.execute(
             """
             INSERT OR REPLACE INTO gpkg_tile_matrix_set
             (
@@ -246,8 +318,8 @@ def create_tile_geopackage(
             VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
-                table_name,
-                tms.epsg,
+                self.table_name,
+                self.tms.epsg,
                 min_x,
                 min_y,
                 max_x,
@@ -255,31 +327,18 @@ def create_tile_geopackage(
             ),
         )
 
-        conn.commit()
+        self._conn.commit()
 
-    finally:
-        conn.close()
+    def _ensure_zoom_level(
+        self,
+        z: int,
+    ) -> None:
+        """
+        Add one gpkg_tile_matrix row for a zoom level.
+        """
 
-
-def ensure_zoom_level(
-    conn: sqlite3.Connection,
-    table_name: str,
-    z: int,
-    tile_size: int = 256,
-    extent_width: float = 40075016.68557849,
-    extent_height: float = 40075016.68557849,
-    tms: Optional[TileMatrixSet] = None,
-) -> None:
-    """
-    Add one gpkg_tile_matrix row for a zoom level.
-
-    For standard XYZ/Web Mercator:
-    matrix_width = matrix_height = 2 ** z
-    """
-
-    if tms is not None:
-        tm = tms.get_level(z)
-        conn.execute(
+        tm = self.tms.get_level(z)
+        self._cursor.execute(
             """
             INSERT OR IGNORE INTO gpkg_tile_matrix
             (
@@ -295,7 +354,7 @@ def ensure_zoom_level(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                table_name,
+                self.table_name,
                 z,
                 tm.matrix_width,
                 tm.matrix_height,
@@ -305,155 +364,17 @@ def ensure_zoom_level(
                 tm.pixel_y_size,
             ),
         )
-    else:
-        # Fall back on standard levels
-        matrix_width = 2**z
-        matrix_height = 2**z
 
-        pixel_x_size = extent_width / matrix_width / tile_size
-        pixel_y_size = extent_height / matrix_height / tile_size
-
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO gpkg_tile_matrix
-            (
-                table_name,
-                zoom_level,
-                matrix_width,
-                matrix_height,
-                tile_width,
-                tile_height,
-                pixel_x_size,
-                pixel_y_size
+    def _validate_table_name(self) -> None:
+        """Ensure table_name is safe to interpolate into SQL and spec-compliant."""
+        if not _IDENTIFIER_RE.match(self.table_name):
+            raise ValueError(
+                f"Invalid table_name {self.table_name!r}: must match "
+                f"[A-Za-z_][A-Za-z0-9_]* (letters, digits, underscore only, "
+                f"not starting with a digit)."
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                table_name,
-                z,
-                matrix_width,
-                matrix_height,
-                tile_size,
-                tile_size,
-                pixel_x_size,
-                pixel_y_size,
-            ),
-        )
-
-
-def add_xyz_tiles_to_geopackage(
-    gpkg_path: str | Path,
-    tiles: Iterable[tuple[int, int, int, bytes]],
-    table_name: str = "tiles",
-    batch_size: int = 1000,
-    tile_size: int = 256,
-    replace: bool = True,
-    tms: Optional[TileMatrixSet] = None,
-) -> None:
-    """
-    Add XYZ tiles to an existing GeoPackage tile table.
-
-    Parameters
-    ----------
-    gpkg_path:
-        Path to the GeoPackage.
-
-    tiles:
-        Iterable of:
-
-            (z, x, y, tile_bytes)
-
-    table_name:
-        Tile table name.
-
-    batch_size:
-        Number of tiles inserted per transaction.
-
-    tile_size:
-        Tile pixel size, usually 256.
-
-    replace:
-        If True, overwrite existing z/x/y tiles.
-        If False, ignore duplicates.
-    """
-
-    gpkg_path = Path(gpkg_path)
-
-    if replace:
-        insert_sql = f"""
-            INSERT OR REPLACE INTO "{table_name}"
-            (
-                zoom_level,
-                tile_column,
-                tile_row,
-                tile_data
+        if self.table_name.lower().startswith("gpkg_"):
+            raise ValueError(
+                f"Invalid table_name {self.table_name!r}: the 'gpkg_' prefix is "
+                f"reserved by the GeoPackage spec."
             )
-            VALUES (?, ?, ?, ?)
-        """
-    else:
-        insert_sql = f"""
-            INSERT OR IGNORE INTO "{table_name}"
-            (
-                zoom_level,
-                tile_column,
-                tile_row,
-                tile_data
-            )
-            VALUES (?, ?, ?, ?)
-        """
-
-    conn = sqlite3.connect(gpkg_path)
-
-    try:
-        batch = []
-        for z, x, y, tile_bytes in tiles:
-            z = int(z)
-            x = int(x)
-            y = int(y)
-
-            ensure_zoom_level(
-                conn=conn, table_name=table_name, z=z, tile_size=tile_size, tms=tms
-            )
-
-            batch.append((z, x, y, sqlite3.Binary(tile_bytes)))
-
-            if len(batch) >= batch_size:
-                conn.executemany(insert_sql, batch)
-                conn.commit()
-                batch.clear()
-
-        if batch:
-            conn.executemany(insert_sql, batch)
-            conn.commit()
-
-    finally:
-        conn.close()
-
-
-def create_and_add_xyz_tiles_geopackage(
-    gpkg_path: str | Path,
-    tiles: Iterable[tuple[int, int, int, bytes]],
-    table_name: str = "tiles",
-    epsg: int = 3857,
-    batch_size: int = 1000,
-    tile_size: int = 256,
-    overwrite: bool = False,
-) -> None:
-    """
-    Convenience wrapper: create GeoPackage, then add tiles.
-    """
-
-    create_tile_geopackage(
-        gpkg_path=gpkg_path,
-        table_name=table_name,
-        epsg=epsg,
-        overwrite=overwrite,
-    )
-
-    add_xyz_tiles_to_geopackage(
-        gpkg_path=gpkg_path,
-        tiles=tiles,
-        table_name=table_name,
-        batch_size=batch_size,
-        tile_size=tile_size,
-    )

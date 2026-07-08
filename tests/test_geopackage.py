@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 import requests
 
-from pygeopkgxyz.pygeopkgxyz import create_tile_geopackage, add_xyz_tiles_to_geopackage
-from pygeopkgxyz.tilematrix_models import TileMatrixSet
+from pygeopkgxyz.pygeopkgxyz import GPKGXYZ
+from pygeopkgxyz.tilematrix_models import TileMatrixSet, create_web_mercator_tms
 
 
 @pytest.fixture()
@@ -126,13 +126,29 @@ def os_27700_tms() -> TileMatrixSet:
 
 
 def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg):
-    create_tile_geopackage(test_gpkg)
-    add_xyz_tiles_to_geopackage(test_gpkg, osm_tiles_z0_z3)
+
+    gpkg = GPKGXYZ(test_gpkg, tms=create_web_mercator_tms(), mode='rwc')
+    gpkg.add_tiles(osm_tiles_z0_z3)
+    gpkg.close()
+    
+
+def test_geopackage_creation_context(osm_tiles_z0_z3, test_gpkg):
+
+    with GPKGXYZ(test_gpkg, tms=create_web_mercator_tms(), mode='rwc') as gpkg:
+        gpkg.add_tiles(osm_tiles_z0_z3)
 
 
 def test_other_epsg(os_tiles_z0, os_27700_tms, test_27700_gpkg):
-    create_tile_geopackage(
-        test_27700_gpkg,
-        tms=os_27700_tms
-    )
-    add_xyz_tiles_to_geopackage(test_27700_gpkg, os_tiles_z0, tms=os_27700_tms)
+    gpkg = GPKGXYZ(test_27700_gpkg, tms=os_27700_tms, mode='rwc')
+    gpkg.add_tiles(os_tiles_z0)
+    gpkg.close()
+
+def test_has_tile(osm_tiles_z0_z3, test_gpkg):
+
+    with GPKGXYZ(test_gpkg, tms=create_web_mercator_tms(), mode='rwc') as gpkg:
+        gpkg.add_tiles(osm_tiles_z0_z3)
+
+        for t in osm_tiles_z0_z3:
+            assert gpkg.has_tile(t[0], t[1], t[2])
+        
+        assert not gpkg.has_tile(0, 0, 99999)

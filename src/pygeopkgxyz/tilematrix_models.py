@@ -56,6 +56,39 @@ class TileMatrix(BaseModel):
         max_x = min_x + self.extent_width
         min_y = max_y - self.extent_height
         return (min_x, min_y, max_x, max_y)
+    
+    def tile_bounds(self, x: int, y: int) -> tuple[float, float, float, float]:
+        """
+        Return the bounding box of the tile at (x, y).
+
+        Parameters
+        ----------
+        x : int
+            Tile column (0 <= x < matrix_width).
+        y : int
+            Tile row (0 <= y < matrix_height).
+
+        Returns
+        -------
+        tuple[float, float, float, float]
+            (min_x, min_y, max_x, max_y)
+        """
+        if not (0 <= x < self.matrix_width):
+            raise ValueError(f"x={x} outside tile matrix")
+
+        if not (0 <= y < self.matrix_height):
+            raise ValueError(f"y={y} outside tile matrix")
+
+        tile_width_map = self.tile_width * self.pixel_x_size
+        tile_height_map = self.tile_height * self.pixel_y_size
+
+        min_x = self.top_left_x + x * tile_width_map
+        max_x = min_x + tile_width_map
+
+        max_y = self.top_left_y - y * tile_height_map
+        min_y = max_y - tile_height_map
+
+        return (min_x, min_y, max_x, max_y)
 
 
 class TileMatrixSet(BaseModel):

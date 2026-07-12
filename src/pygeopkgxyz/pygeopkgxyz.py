@@ -42,7 +42,7 @@ class GPKGXYZ:
         if mode in ["ro", "rw"] and not self.filepath.exists():
             raise IOError("geopackage not found")
 
-        file_string = f"{self.filepath.resolve().as_uri()}?mode={mode}"
+        file_string = f"{self.filepath.absolute().as_uri()}?mode={mode}"
         self._conn = sqlite3.connect(file_string, uri=True)
         self._cursor = self._conn.cursor()
 
@@ -50,7 +50,7 @@ class GPKGXYZ:
         self._cursor.execute("PRAGMA journal_mode=OFF")
         self._cursor.execute("PRAGMA locking_mode=EXCLUSIVE")
 
-        # initialize tables if needed
+        # initialize tables if needed and in create mode
         if mode == "rwc":
             self._create_tables()
 

@@ -51,7 +51,7 @@ class GPKGXYZ:
         self._cursor.execute("PRAGMA locking_mode=EXCLUSIVE")
 
         # initialize tables if needed
-        if mode != "r":
+        if mode == "rwc":
             self._create_tables()
 
     def __enter__(self) -> "GPKGXYZ":

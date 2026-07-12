@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+import numpy as np
 
 import pytest
 import requests
@@ -152,3 +153,38 @@ def test_has_tile(osm_tiles_z0_z3, test_gpkg):
             assert gpkg.has_tile(t[0], t[1], t[2])
         
         assert not gpkg.has_tile(0, 0, 99999)
+
+
+def test_has_tiles(osm_tiles_z0_z3, test_gpkg):
+
+    with GPKGXYZ(test_gpkg, tms=create_web_mercator_tms(), mode='rwc') as gpkg:
+        gpkg.add_tiles(osm_tiles_z0_z3)
+        
+        # All tiles present
+        zxys = [(t[0], t[1], t[2]) for t in osm_tiles_z0_z3]
+        results = gpkg.has_tiles(zxys)
+        n = np.count_nonzero(results)
+        assert n == len(zxys)
+        assert False not in results
+
+        # Add a tile that isn't present
+        zxys.append((3,1,999))
+        results = gpkg.has_tiles(zxys)
+        n = np.count_nonzero(results)
+        assert n == len(zxys) - 1
+        nf = np.count_nonzero(~results)
+        assert nf == 1
+
+        # Test a long query
+        nt = 10_000_000
+        base = np.asarray(zxys, dtype=np.int32)
+        reps = (nt + len(base) - 1) // len(base)
+        zxys = np.tile(base, (reps, 1))[:nt]
+        count = np.count_nonzero(zxys[:,2] == 999)
+
+        #zxys = zxys * nt
+        results = gpkg.has_tiles(zxys)
+        n = np.count_nonzero(results)
+        assert n == len(zxys) - count
+        nf = np.count_nonzero(~results)
+        assert nf == count

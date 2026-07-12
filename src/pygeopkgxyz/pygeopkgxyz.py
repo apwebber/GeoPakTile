@@ -1,5 +1,6 @@
 import re
 import sqlite3
+import numpy as np
 from pathlib import Path
 from typing import Iterable, Literal
 from pyproj import CRS
@@ -76,6 +77,31 @@ class GPKGXYZ:
 
         row = self._cursor.fetchone()
         return row[0] == 1
+    
+
+    def has_tiles(self, zxys: list[tuple[int, int, int]] | np.ndarray) -> np.ndarray:
+        """Check many tiles efficiently."""
+
+        requested = np.asarray(zxys, dtype=np.uint64)
+
+        self._cursor.execute(
+            f"SELECT zoom_level, tile_column, tile_row FROM {self.table_name}"
+        )
+        rows = self._cursor.fetchall()
+        existing = (
+            np.array(rows, dtype=np.uint64)
+            if rows
+            else np.empty((0, 3), dtype=np.uint64)
+        )
+
+        def pack(arr: np.ndarray) -> np.ndarray:
+            z, x, y = arr[:, 0], arr[:, 1], arr[:, 2]
+            return (z << np.uint64(56)) | (x << np.uint64(28)) | y
+
+        req_keys = pack(requested)
+        exist_keys = np.unique(pack(existing))
+
+        return np.isin(req_keys, exist_keys, assume_unique=False)
 
     def add_tiles(
         self,

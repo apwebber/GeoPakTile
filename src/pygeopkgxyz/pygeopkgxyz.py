@@ -94,12 +94,14 @@ class GPKGXYZ:
             else np.empty((0, 3), dtype=np.uint64)
         )
 
+        # Combine z, x, y into a single array using bit shifting
+        # [ 8 bits unused ][ 8 bits z ][ 28 bits x ][ 28 bits y ]
         def pack(arr: np.ndarray) -> np.ndarray:
             z, x, y = arr[:, 0], arr[:, 1], arr[:, 2]
             return (z << np.uint64(56)) | (x << np.uint64(28)) | y
 
         req_keys = pack(requested)
-        exist_keys = np.unique(pack(existing))
+        exist_keys = pack(existing)
 
         return np.isin(req_keys, exist_keys, assume_unique=False)
 
@@ -126,6 +128,10 @@ class GPKGXYZ:
             VALUES (?, ?, ?, ?)
         """
 
+        zs = list(set([t[0] for t in tiles]))
+        for z in zs:
+            self._ensure_zoom_level(z)
+
         batch = []
         for z, x, y, tile_bytes in tiles:
             z = int(z)
@@ -134,8 +140,6 @@ class GPKGXYZ:
 
             if self.has_tile(z, x, y):
                 continue
-
-            self._ensure_zoom_level(z)
 
             batch.append((z, x, y, sqlite3.Binary(tile_bytes)))
             if len(batch) >= batch_size:

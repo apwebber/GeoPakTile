@@ -151,6 +151,11 @@ class TileMatrixSet(BaseModel):
             if tm.zoom_level == zoom_level:
                 return tm
         raise KeyError(f"No TileMatrix for zoom_level={zoom_level}")
+    
+    def tile_bounds(self, z: int, x: int, y: int):
+        """Wraps the TileMatrix tile_bounds method"""
+        tm = self.get_level(z)
+        return tm.tile_bounds(x, y)
 
     @property
     def overall_bounds(self) -> tuple[float, float, float, float]:

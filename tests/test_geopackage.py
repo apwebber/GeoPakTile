@@ -53,7 +53,7 @@ def osm_tiles_z0_z3() -> list[tuple[int, int, int, bytes]]:
 @pytest.fixture()
 def os_tiles_z0() -> list[tuple[int, int, int, bytes]]:
     """
-    Download OpenStreetMap XYZ tiles for zoom levels 0 and 1.
+    Download OS XYZ tiles for zoom levels 0 and 1.
 
     Returns
     -------

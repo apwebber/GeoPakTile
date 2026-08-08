@@ -47,8 +47,8 @@ class GPKGXYZ:
         self._conn = sqlite3.connect(file_string, uri=True)
         self._cursor = self._conn.cursor()
 
-        self._cursor.execute("PRAGMA synchronous=OFF")
-        self._cursor.execute("PRAGMA journal_mode=OFF")
+        self._cursor.execute("PRAGMA synchronous=NORMAL")
+        self._cursor.execute("PRAGMA journal_mode=WAL")
         self._cursor.execute("PRAGMA locking_mode=EXCLUSIVE")
 
         # initialize tables if needed and in create mode

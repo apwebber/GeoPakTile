@@ -1,7 +1,8 @@
 import re
 import sqlite3
+from collections.abc import Iterable
 from pathlib import Path
-from typing import ClassVar, Iterable, Literal
+from typing import ClassVar, Literal, Self
 
 import numpy as np
 from pyproj import CRS
@@ -64,7 +65,7 @@ class GPKGXYZ:
         if mode == "rwc":
             self._create_tables()
 
-    def __enter__(self) -> "GPKGXYZ":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -136,7 +137,7 @@ class GPKGXYZ:
             VALUES (?, ?, ?, ?)
         """
 
-        zs = list(set([t[0] for t in tiles]))
+        zs = {t[0] for t in tiles}
         for z in zs:
             self._ensure_zoom_level(z)
 

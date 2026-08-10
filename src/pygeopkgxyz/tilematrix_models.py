@@ -110,7 +110,7 @@ class TileMatrixSet(BaseModel):
         return sorted(v, key=lambda tm: tm.zoom_level)
 
     @model_validator(mode="after")
-    def _check_consistent_top_left(self) -> "TileMatrixSet":
+    def _check_consistent_top_left(self) -> TileMatrixSet:
         """
         All levels in a pyramid should share the same origin. This doesn't
         hold for every WMTS service, but it does for standard XYZ-style
@@ -126,7 +126,7 @@ class TileMatrixSet(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _check_zoom_levels_contiguous(self) -> "TileMatrixSet":
+    def _check_zoom_levels_contiguous(self) -> TileMatrixSet:
         levels = [tm.zoom_level for tm in self.tile_matrices]
         expected = list(range(levels[0], levels[0] + len(levels)))
         if levels != expected:
@@ -137,7 +137,7 @@ class TileMatrixSet(BaseModel):
         return self
     
     @model_validator(mode="after")
-    def _check_bbox_ordering(self) -> "TileMatrixSet":
+    def _check_bbox_ordering(self) -> TileMatrixSet:
         if self.bbox_min_x >= self.bbox_max_x or self.bbox_min_y >= self.bbox_max_y:
             raise ValueError(
                 f"bbox is inverted or zero-area: "

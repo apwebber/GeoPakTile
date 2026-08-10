@@ -1,8 +1,9 @@
 import re
 import sqlite3
-import numpy as np
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import ClassVar, Iterable, Literal
+
+import numpy as np
 from pyproj import CRS
 
 from pygeopkgxyz.tilematrix_models import TileMatrixSet
@@ -11,12 +12,19 @@ _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class GPKGXYZ:
+    DEFAULT_PRAGMAS: ClassVar[dict[str, str]] = {
+        "synchronous": "NORMAL",
+        "journal_mode": "WAL",
+        "locking_mode": "EXCLUSIVE",
+    }
+
     def __init__(
         self,
         filepath,
         tms: TileMatrixSet,
         table_name: str = "tiles",
         mode: Literal["ro", "rw", "rwc"] = "ro",
+        pragmas: dict[str, str] | None = None,
     ):
         """Create and or write tiles to a geopackage XYZ tile layer.
 
@@ -29,6 +37,10 @@ class GPKGXYZ:
             table_name (str, optional): The name of the tile table/layer. Defaults to "tiles".
             mode (Literal[ro, rw, rwc], optional): Sqlite3 connection modes. ro = read only, rw is
                 read-write, rwc is read, write or create. Defaults to 'ro' for safety.
+            pragmas (dict[str, str], optional): PRAGMA overrides/additions applied
+                on top of DEFAULT_PRAGMAS after connecting. Pass e.g.
+                {"synchronous": "FULL"} to override a default, or add new keys
+                for pragmas not set by default. Defaults to None (no changes).
         """
 
         self.filepath = Path(filepath)
@@ -41,15 +53,12 @@ class GPKGXYZ:
             raise ValueError("Mode must be ro, rw or rwc")
 
         if mode in ["ro", "rw"] and not self.filepath.exists():
-            raise IOError("geopackage not found")
+            raise OSError("geopackage not found")
 
         file_string = f"{self.filepath.absolute().as_uri()}?mode={mode}"
         self._conn = sqlite3.connect(file_string, uri=True)
         self._cursor = self._conn.cursor()
-
-        self._cursor.execute("PRAGMA synchronous=NORMAL")
-        self._cursor.execute("PRAGMA journal_mode=WAL")
-        self._cursor.execute("PRAGMA locking_mode=EXCLUSIVE")
+        self._apply_pragmas(pragmas)
 
         # initialize tables if needed and in create mode
         if mode == "rwc":
@@ -77,7 +86,6 @@ class GPKGXYZ:
 
         row = self._cursor.fetchone()
         return row[0] == 1
-    
 
     def has_tiles(self, zxys: list[tuple[int, int, int]] | np.ndarray) -> np.ndarray:
         """Check many tiles efficiently."""
@@ -150,6 +158,16 @@ class GPKGXYZ:
         if batch:
             self._cursor.executemany(insert_sql, batch)
             self._conn.commit()
+
+    def _apply_pragmas(self, overrides: dict[str, str] | None) -> None:
+        merged = {**self.DEFAULT_PRAGMAS, **(overrides or {})}
+        for name, value in merged.items():
+            # Ensure malicious values aren't parsed.
+            # Passes: "WAL", "NORMAL", "OFF", "EXCLUSIVE", "1000" (a plausible wal_autocheckpoint value)
+            # Blocked: "WAL; DROP TABLE tiles;--", "OFF' OR '1'='1", anything with spaces, quotes, or punctuation
+            if not str(value).replace("_", "").isalnum():
+                raise ValueError(f"Unsafe PRAGMA value for {name!r}: {value!r}")
+            self._cursor.execute(f"PRAGMA {name}={value}")
 
     def _create_tables(self):
         """Create the tables for a valid geopackage XYZ layer"""

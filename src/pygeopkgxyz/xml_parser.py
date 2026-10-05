@@ -103,7 +103,7 @@ def _parse_bounding_box(elem: ET.Element) -> TMSBoundingBox | None:
         return None
     lower = tuple(float(v) for v in _text(bbox, "ows:LowerCorner").split())
     upper = tuple(float(v) for v in _text(bbox, "ows:UpperCorner").split())
-    return TMSBoundingBox(lowerLeft=lower, upperRight=upper)
+    return TMSBoundingBox(lowerLeft=lower, upperRight=upper)  # type: ignore morecantile uses NumType = int | float
 
 
 def parse_tile_matrix_set(elem: ET.Element, swap_xy: bool | None = None) -> TileMatrixSet:

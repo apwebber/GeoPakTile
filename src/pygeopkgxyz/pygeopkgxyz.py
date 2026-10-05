@@ -1,11 +1,18 @@
 import re
 import sqlite3
+import sys
 from collections.abc import Iterable
 from pathlib import Path
-from typing import ClassVar, Literal, Self
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
+from typing import ClassVar, Literal
 
 import numpy as np
-from morecantile import TileMatrixSet
+from morecantile.models import TileMatrixSet
 from pyproj import CRS
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")

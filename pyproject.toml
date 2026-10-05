@@ -6,13 +6,10 @@ readme = "README.md"
 authors = [
     { name = "apwebber", email = "39490780+apwebber@users.noreply.github.com" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
-    "morecantile>=7.1.0",
-    "numpy>=2.5.1",
-    "pydantic>=2.13.4",
-    "pyproj>=3.7.2",
-    "pytest>=9.1.1",
+    "morecantile>=6.2.0",
+    "numpy>=2.2.6",
     "requests>=2.34.2",
 ]
 
@@ -25,5 +22,6 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "diskcache>=5.6.3",
+    "pytest",
+    "diskcache",
 ]

@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "typing_extensions>=4.0; python_version < '3.11'",
     "morecantile>=6.2.0",
     "numpy>=2.2.6",
     "requests>=2.34.2",

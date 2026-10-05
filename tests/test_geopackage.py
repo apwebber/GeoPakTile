@@ -2,12 +2,13 @@ import json
 import os
 from pathlib import Path
 
+import morecantile
 import numpy as np
 import pytest
 import requests
+from morecantile import TileMatrixSet
 
 from pygeopkgxyz.pygeopkgxyz import GPKGXYZ
-from pygeopkgxyz.tilematrix_models import TileMatrixSet, create_web_mercator_tms
 
 
 @pytest.fixture()
@@ -128,14 +129,14 @@ def os_27700_tms() -> TileMatrixSet:
 
 def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg):
 
-    gpkg = GPKGXYZ(test_gpkg, tms=create_web_mercator_tms(), mode='rwc')
+    gpkg = GPKGXYZ(test_gpkg, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc')
     gpkg.add_tiles(osm_tiles_z0_z3)
     gpkg.close()
     
 
 def test_geopackage_creation_context(osm_tiles_z0_z3, test_gpkg):
 
-    with GPKGXYZ(test_gpkg, tms=create_web_mercator_tms(), mode='rwc') as gpkg:
+    with GPKGXYZ(test_gpkg, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
 
 
@@ -146,7 +147,7 @@ def test_other_epsg(os_tiles_z0, os_27700_tms, test_27700_gpkg):
 
 def test_has_tile(osm_tiles_z0_z3, test_gpkg):
 
-    with GPKGXYZ(test_gpkg, tms=create_web_mercator_tms(), mode='rwc') as gpkg:
+    with GPKGXYZ(test_gpkg, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
 
         for t in osm_tiles_z0_z3:
@@ -157,7 +158,7 @@ def test_has_tile(osm_tiles_z0_z3, test_gpkg):
 
 def test_has_tiles(osm_tiles_z0_z3, test_gpkg):
 
-    with GPKGXYZ(test_gpkg, tms=create_web_mercator_tms(), mode='rwc') as gpkg:
+    with GPKGXYZ(test_gpkg, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
         
         # All tiles present

@@ -1,164 +1,276 @@
 {
-  "identifier": "EPSG:27700",
-  "epsg": 27700,
-  "bbox_min_x": -238375.0000149319,
-  "bbox_max_x": 900000.00000057,
-  "bbox_min_y": 0.0,
-  "bbox_max_y": 1376256.0000176653,
-  "tile_matrices": [
+  "title": "EPSG:27700",
+  "description": null,
+  "keywords": null,
+  "id": "EPSG_27700",
+  "uri": null,
+  "orderedAxes": null,
+  "crs": "EPSG:27700",
+  "wellKnownScaleSet": null,
+  "boundingBox": {
+    "lowerLeft": [
+      -238375.0000149319,
+      0.0
+    ],
+    "upperRight": [
+      900000.00000057,
+      1376256.0000176653
+    ],
+    "crs": null,
+    "orderedAxes": null
+  },
+  "tileMatrices": [
     {
-      "identifier": "EPSG:27700:0",
-      "zoom_level": 0,
-      "scale_denominator": 3199999.999496063,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 5,
-      "matrix_height": 7
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "0",
+      "scaleDenominator": 3199999.999496063,
+      "cellSize": 895.9999998588976,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 5,
+      "matrixHeight": 7,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:1",
-      "zoom_level": 1,
-      "scale_denominator": 1599999.9997480316,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 10,
-      "matrix_height": 13
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "1",
+      "scaleDenominator": 1599999.9997480316,
+      "cellSize": 447.9999999294488,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 10,
+      "matrixHeight": 13,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:2",
-      "zoom_level": 2,
-      "scale_denominator": 799999.9998740158,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 20,
-      "matrix_height": 25
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "2",
+      "scaleDenominator": 799999.9998740158,
+      "cellSize": 223.9999999647244,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 20,
+      "matrixHeight": 25,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:3",
-      "zoom_level": 3,
-      "scale_denominator": 399999.9999370079,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 40,
-      "matrix_height": 49
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "3",
+      "scaleDenominator": 399999.9999370079,
+      "cellSize": 111.9999999823622,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 40,
+      "matrixHeight": 49,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:4",
-      "zoom_level": 4,
-      "scale_denominator": 199999.99996850395,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 80,
-      "matrix_height": 98
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "4",
+      "scaleDenominator": 199999.99996850395,
+      "cellSize": 55.9999999911811,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 80,
+      "matrixHeight": 98,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:5",
-      "zoom_level": 5,
-      "scale_denominator": 99999.99998425198,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 159,
-      "matrix_height": 195
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "5",
+      "scaleDenominator": 99999.99998425198,
+      "cellSize": 27.99999999559055,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 159,
+      "matrixHeight": 195,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:6",
-      "zoom_level": 6,
-      "scale_denominator": 49999.99999212599,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 318,
-      "matrix_height": 390
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "6",
+      "scaleDenominator": 49999.99999212599,
+      "cellSize": 13.999999997795275,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 318,
+      "matrixHeight": 390,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:7",
-      "zoom_level": 7,
-      "scale_denominator": 24999.999996062994,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 636,
-      "matrix_height": 779
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "7",
+      "scaleDenominator": 24999.999996062994,
+      "cellSize": 6.999999998897637,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 636,
+      "matrixHeight": 779,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:8",
-      "zoom_level": 8,
-      "scale_denominator": 12499.999998031497,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 1271,
-      "matrix_height": 1558
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "8",
+      "scaleDenominator": 12499.999998031497,
+      "cellSize": 3.4999999994488187,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 1271,
+      "matrixHeight": 1558,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:9",
-      "zoom_level": 9,
-      "scale_denominator": 6249.9999990157485,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 2542,
-      "matrix_height": 3116
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "9",
+      "scaleDenominator": 6249.9999990157485,
+      "cellSize": 1.7499999997244093,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 2542,
+      "matrixHeight": 3116,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:10",
-      "zoom_level": 10,
-      "scale_denominator": 3124.9999995078742,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 5083,
-      "matrix_height": 6232
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "10",
+      "scaleDenominator": 3124.9999995078742,
+      "cellSize": 0.8749999998622047,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 5083,
+      "matrixHeight": 6232,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:11",
-      "zoom_level": 11,
-      "scale_denominator": 1562.4999997539371,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 10165,
-      "matrix_height": 12463
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "11",
+      "scaleDenominator": 1562.4999997539371,
+      "cellSize": 0.43749999993110233,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 10165,
+      "matrixHeight": 12463,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:12",
-      "zoom_level": 12,
-      "scale_denominator": 781.2499998769686,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 20329,
-      "matrix_height": 24925
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "12",
+      "scaleDenominator": 781.2499998769686,
+      "cellSize": 0.21874999996555117,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 20329,
+      "matrixHeight": 24925,
+      "variableMatrixWidths": null
     },
     {
-      "identifier": "EPSG:27700:13",
-      "zoom_level": 13,
-      "scale_denominator": 390.6249999384843,
-      "top_left_x": -238375.0,
-      "top_left_y": 1376256.0,
-      "tile_width": 256,
-      "tile_height": 256,
-      "matrix_width": 40657,
-      "matrix_height": 49849
+      "title": null,
+      "description": null,
+      "keywords": null,
+      "id": "13",
+      "scaleDenominator": 390.6249999384843,
+      "cellSize": 0.10937499998277558,
+      "cornerOfOrigin": "topLeft",
+      "pointOfOrigin": [
+        -238375.0,
+        1376256.0
+      ],
+      "tileWidth": 256,
+      "tileHeight": 256,
+      "matrixWidth": 40657,
+      "matrixHeight": 49849,
+      "variableMatrixWidths": null
     }
   ]
 }

@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import ClassVar, Literal, Self
 
 import numpy as np
+from morecantile import TileMatrixSet
 from pyproj import CRS
-
-from pygeopkgxyz.tilematrix_models import TileMatrixSet
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -219,7 +218,12 @@ class GPKGXYZ:
             """
         )
 
-        crs = CRS.from_epsg(self.tms.epsg)
+        epsg = self.tms.crs.to_epsg()
+        if epsg is None:
+            raise ValueError(
+                f"TileMatrixSet CRS {self.tms.crs} does not have an EPSG code."
+            )
+        crs = CRS.from_epsg(epsg)
         srs_name = crs.name
         definition = crs.to_wkt()
 
@@ -238,8 +242,8 @@ class GPKGXYZ:
             """,
             (
                 srs_name,
-                self.tms.epsg,
-                self.tms.epsg,
+                epsg,
+                epsg,
                 definition,
                 srs_name,
             ),
@@ -324,6 +328,8 @@ class GPKGXYZ:
             """
         )
 
+        bb = self.tms.xy_bbox
+
         self._cursor.execute(
             """
             INSERT OR REPLACE INTO gpkg_contents
@@ -343,15 +349,13 @@ class GPKGXYZ:
             (
                 self.table_name,
                 self.table_name,
-                self.tms.bbox_min_x,
-                self.tms.bbox_min_y,
-                self.tms.bbox_max_x,
-                self.tms.bbox_max_y,
-                self.tms.epsg,
+                bb.left,
+                bb.bottom,
+                bb.right,
+                bb.top,
+                epsg,
             ),
         )
-
-        min_x, min_y, max_x, max_y = self.tms.overall_bounds
 
         self._cursor.execute(
             """
@@ -368,11 +372,11 @@ class GPKGXYZ:
             """,
             (
                 self.table_name,
-                self.tms.epsg,
-                min_x,
-                min_y,
-                max_x,
-                max_y,
+                epsg,
+                bb.left,
+                bb.bottom,
+                bb.right,
+                bb.top,
             ),
         )
 
@@ -386,7 +390,7 @@ class GPKGXYZ:
         Add one gpkg_tile_matrix row for a zoom level.
         """
 
-        tm = self.tms.get_level(z)
+        tm = self.tms.matrix(z)
         self._cursor.execute(
             """
             INSERT OR IGNORE INTO gpkg_tile_matrix
@@ -405,12 +409,12 @@ class GPKGXYZ:
             (
                 self.table_name,
                 z,
-                tm.matrix_width,
-                tm.matrix_height,
-                tm.tile_width,
-                tm.tile_height,
-                tm.pixel_x_size,
-                tm.pixel_y_size,
+                tm.matrixWidth,
+                tm.matrixHeight,
+                tm.tileWidth,
+                tm.tileHeight,
+                tm.cellSize,
+                tm.cellSize,
             ),
         )
 

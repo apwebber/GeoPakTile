@@ -2,14 +2,14 @@
 
 For writing geopackage XYZ raster tile layers, with support for using arbitrary grid systems.
 
-Geopackage XYZ files can use any tile grid system, this is often defined by a server's GetCapabilities response where a TileMatrixSet defines the data co-ordinate system, the extent, the number of rows and columns in each zoom lever, and the corner co-ordinates for each zoom level. This package contains a tool for parsing the GetCapabilities XML into a `TileMatrixSet`, and then for writing tiles to a new or existing geopackage.
+Geopackage XYZ files can use any tile grid system, this is often defined by a server's GetCapabilities response where a TileMatrixSet defines the data co-ordinate system, the extent, the number of rows and columns in each zoom lever, and the corner co-ordinates for each zoom level. This package contains a tool for parsing the GetCapabilities XML into a [morecantile](https://github.com/developmentseed/morecantile) `TileMatrixSet`, and then for writing tiles to a new or existing geopackage.
 
 ## Examples
 
-Write tiles to a new geopackage using web mercator (similar to mbtiles), where tiles is a list of (z, x, y, bytes). `tms` is a `TileMatrixSet` - the default web mercator can be produced with `create_web_mercator_tms()`
+Write tiles to a new geopackage using web mercator (similar to mbtiles), where tiles is a list of (z, x, y, bytes). `tms` is a morecantile `TileMatrixSet` - the standard web mercator can be obtained with `morecantile.tms.get('WebMercatorQuad')`
 
 ```
-with GPKGXYZ(test_gpkg, tms=create_web_mercator_tms(), mode='rwc') as gpkg:
+with GPKGXYZ(test_gpkg, tms=morecantile.tms.get('WebMercatorQuad'), mode='rwc') as gpkg:
     gpkg.add_tiles(tiles)
 ```
 
@@ -25,6 +25,10 @@ with GPKGXYZ(test_gpkg, tms=tms, mode='rwc') as gpkg:
     gpkg.add_tiles(tiles)
 ```
 
+
+### TileMatrixSet models
+
+Grid definitions use the [morecantile](https://github.com/developmentseed/morecantile) package (`morecantile.TileMatrixSet`, `TileMatrix`, etc.) so any morecantile TileMatrixSet (built-in or custom-loaded) can be passed to `GPKGXYZ`. The XML parser returns morecantile `TileMatrixSet` objects.
 
 ### XML Parser
 

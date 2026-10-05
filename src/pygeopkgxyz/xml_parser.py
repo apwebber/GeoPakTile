@@ -5,7 +5,9 @@ from __future__ import annotations
 import re
 from xml.etree import ElementTree as ET
 
-from pygeopkgxyz.tilematrix_models import TileMatrix, TileMatrixSet
+import pyproj
+from morecantile.models import CRS, TileMatrix, TileMatrixSet, TMSBoundingBox
+from morecantile.utils import meters_per_unit
 
 NS = {
     "wmts": "http://www.opengis.net/wmts/1.0",
@@ -27,27 +29,20 @@ _EPSG_RE = re.compile(r"EPSG[:/]+(?:[\w.]+[:/]+)*(\d+)\s*$", re.IGNORECASE)
 # order
 _CRS84_RE = re.compile(r"\bCRS84\b", re.IGNORECASE)
 
-# CRS whose official EPSG axis order is (lat, lon) / (northing, easting)
-# rather than (x, y).
-_LAT_LON_ORDER_EPSG = {4326}
 
+def _parse_crs(crs_text: str) -> str:
+    """Parse a SupportedCRS string into a CRS string pyproj/morecantile accept.
 
-def _parse_crs(crs_text: str) -> tuple[int, bool]:
-    """Parse a SupportedCRS string into (epsg_code, default_swap_xy).
-
-    default_swap_xy is our best guess, based purely on the CRS identifier,
-    of whether coordinates in this TileMatrixSet are written (lat, lon)
-    rather than (lon, lat)/(x, y).
+    Returns "OGC:CRS84" for CRS84 and "EPSG:<code>" otherwise.
     """
     crs_text = crs_text.strip()
     if _CRS84_RE.search(crs_text):
-        return 4326, False
+        return "OGC:CRS84"
 
     match = _EPSG_RE.search(crs_text)
     if not match:
         raise ValueError(f"Could not parse EPSG code from SupportedCRS: {crs_text!r}")
-    epsg = int(match.group(1))
-    return epsg, epsg in _LAT_LON_ORDER_EPSG
+    return f"EPSG:{int(match.group(1))}"
 
 
 def _text(elem: ET.Element, path: str, ns: dict[str, str] = NS) -> str:
@@ -68,15 +63,16 @@ def _text_any_ns(elem: ET.Element, local_name: str) -> str:
     return found.text.strip()
 
 
-def _parse_tile_matrix(
-    elem: ET.Element, tms_identifier: str, fallback_zoom: int, swap_xy: bool
-) -> TileMatrix:
+def _parse_tile_matrix(elem: ET.Element, fallback_zoom: int, meters_per_crs_unit: float) -> TileMatrix:
     """Parse a single <TileMatrix> element.
 
     The WMTS spec doesn't require ows:Identifier to be an integer zoom
-    level, just a unique label. Most XYZ-style pyramids do use "0", "1",
-    "2", ... in document order, so we try that first and fall back to the
-    element's position in the (already document-ordered) TileMatrixSet.
+    level, just a unique label. morecantile requires an integer id, so we
+    try the identifier first and fall back to the element's position in the
+    (already document-ordered) TileMatrixSet.
+
+    pointOfOrigin is kept in the order written in the capabilities (the
+    CRS axis order); TileMatrixSet handles any lat/lon inversion itself.
     """
     raw_id = _text(elem, "ows:Identifier")
     try:
@@ -85,45 +81,29 @@ def _parse_tile_matrix(
         zoom_level = fallback_zoom
 
     first, second = _text_any_ns(elem, "TopLeftCorner").split()
-    top_left_x, top_left_y = (float(second), float(first)) if swap_xy else (float(first), float(second))
+    scale_denominator = float(_text_any_ns(elem, "ScaleDenominator"))
 
     return TileMatrix(
-        identifier=f"{tms_identifier}:{raw_id}",
-        zoom_level=zoom_level,
-        scale_denominator=float(_text_any_ns(elem, "ScaleDenominator")),
-        top_left_x=top_left_x,
-        top_left_y=top_left_y,
-        tile_width=int(_text_any_ns(elem, "TileWidth")),
-        tile_height=int(_text_any_ns(elem, "TileHeight")),
-        matrix_width=int(_text_any_ns(elem, "MatrixWidth")),
-        matrix_height=int(_text_any_ns(elem, "MatrixHeight")),
+        id=str(zoom_level),
+        scaleDenominator=scale_denominator,
+        cellSize=scale_denominator * 0.28e-3 / meters_per_crs_unit,
+        cornerOfOrigin="topLeft",
+        pointOfOrigin=(float(first), float(second)),
+        tileWidth=int(_text_any_ns(elem, "TileWidth")),
+        tileHeight=int(_text_any_ns(elem, "TileHeight")),
+        matrixWidth=int(_text_any_ns(elem, "MatrixWidth")),
+        matrixHeight=int(_text_any_ns(elem, "MatrixHeight")),
     )
 
 
-def _parse_bounding_box(elem: ET.Element, swap_xy: bool) -> tuple[float, float, float, float] | None:
-    """Parse an optional ows:BoundingBox into (min_x, min_y, max_x, max_y)."""
+def _parse_bounding_box(elem: ET.Element) -> TMSBoundingBox | None:
+    """Parse an optional ows:BoundingBox (coordinates in CRS axis order)."""
     bbox = elem.find("ows:BoundingBox", NS)
     if bbox is None:
         return None
-    lc_first, lc_second = _text(bbox, "ows:LowerCorner").split()
-    uc_first, uc_second = _text(bbox, "ows:UpperCorner").split()
-    if swap_xy:
-        min_x, min_y = float(lc_second), float(lc_first)
-        max_x, max_y = float(uc_second), float(uc_first)
-    else:
-        min_x, min_y = float(lc_first), float(lc_second)
-        max_x, max_y = float(uc_first), float(uc_second)
-    return min_x, min_y, max_x, max_y
-
-
-# CRS whose official EPSG axis order is (lat, lon) / (northing, easting)
-# rather than (x, y). WMTS servers commonly follow the official order for
-# these, so TopLeftCorner/BoundingBox corners come as (lat, lon) pairs.
-# This list covers the common case (geographic CRS); it is not exhaustive
-# -- pass swap_xy explicitly to parse_tile_matrix_set/parse_capabilities
-# if you hit a CRS not covered here, or if a particular server doesn't
-# follow the official order despite using this CRS.
-_LAT_LON_ORDER_EPSG = {4326}
+    lower = tuple(float(v) for v in _text(bbox, "ows:LowerCorner").split())
+    upper = tuple(float(v) for v in _text(bbox, "ows:UpperCorner").split())
+    return TMSBoundingBox(lowerLeft=lower, upperRight=upper)
 
 
 def parse_tile_matrix_set(elem: ET.Element, swap_xy: bool | None = None) -> TileMatrixSet:
@@ -134,44 +114,36 @@ def parse_tile_matrix_set(elem: ET.Element, swap_xy: bool | None = None) -> Tile
     swap_xy : bool | None
         Whether TopLeftCorner/BoundingBox coordinates are written as
         (lat, lon) instead of (lon, lat) / (x, y). If None (default),
-        this is guessed from the CRS (True for URN-form EPSG:4326, False
-        for CRS84). WMTS servers are inconsistent about this in practice,
-        so if your parsed bounds look implausible (e.g. inverted or
-        wildly out of range), try passing the opposite explicitly.
+        morecantile infers this from the CRS's axis order (e.g. True for
+        EPSG:4326, False for CRS84). WMTS servers are inconsistent about
+        this in practice, so if your parsed bounds look implausible, try
+        passing the opposite explicitly; this sets the TileMatrixSet's
+        orderedAxes.
     """
     identifier = _text(elem, "ows:Identifier")
-    epsg, default_swap_xy = _parse_crs(_text(elem, "ows:SupportedCRS"))
-
-    if swap_xy is None:
-        swap_xy = default_swap_xy
+    crs_str = _parse_crs(_text(elem, "ows:SupportedCRS"))
+    mpu = meters_per_unit(pyproj.CRS.from_user_input(crs_str))
 
     tile_matrix_elems = elem.findall("wmts:TileMatrix", NS) or elem.findall("TileMatrix")
     if not tile_matrix_elems:
         raise ValueError(f"TileMatrixSet {identifier!r} has no TileMatrix levels")
 
     tile_matrices = [
-        _parse_tile_matrix(tm_elem, identifier, fallback_zoom=i, swap_xy=swap_xy)
+        _parse_tile_matrix(tm_elem, fallback_zoom=i, meters_per_crs_unit=mpu)
         for i, tm_elem in enumerate(tile_matrix_elems)
     ]
+    tile_matrices.sort(key=lambda tm: int(tm.id))
 
-    bbox = _parse_bounding_box(elem, swap_xy=swap_xy)
-    if bbox is None:
-        # Not every service includes ows:BoundingBox on the TileMatrixSet
-        # itself. Fall back to the coarsest level's implied bounds, which
-        # is the same convention TileMatrixSet.overall_bounds uses.
-        levels_by_zoom = sorted(tile_matrices, key=lambda tm: tm.zoom_level)
-        bbox = levels_by_zoom[0].bounds
-
-    min_x, min_y, max_x, max_y = bbox
+    ordered_axes = None if swap_xy is None else (["Y", "X"] if swap_xy else ["X", "Y"])
 
     return TileMatrixSet(
-        identifier=identifier,
-        epsg=epsg,
-        bbox_min_x=min_x,
-        bbox_max_x=max_x,
-        bbox_min_y=min_y,
-        bbox_max_y=max_y,
-        tile_matrices=tile_matrices,
+        # morecantile restricts ids to [\w\d_-]; keep the original as title.
+        id=re.sub(r"[^\w\-]", "_", identifier),
+        title=identifier,
+        crs=CRS(crs_str),
+        orderedAxes=ordered_axes,
+        boundingBox=_parse_bounding_box(elem),
+        tileMatrices=tile_matrices,
     )
 
 
@@ -213,7 +185,7 @@ def get_tile_matrix_set(
     """
     all_sets = parse_capabilities(xml_source, swap_xy=swap_xy)
     for tms in all_sets:
-        if tms.identifier == identifier:
+        if identifier in (tms.id, tms.title):
             return tms
-    available = [tms.identifier for tms in all_sets]
+    available = [tms.title or tms.id for tms in all_sets]
     raise KeyError(f"No TileMatrixSet {identifier!r} found. Available: {available}")

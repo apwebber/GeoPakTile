@@ -1,8 +1,8 @@
 from pathlib import Path
 
+import diskcache
 import pytest
 import requests
-import diskcache
 
 from pygeopkgxyz.xml_parser import parse_capabilities
 
@@ -63,4 +63,6 @@ def test_parse_earthdata(earthdata_4326_xml, earthdata_3857_xml, earthdata_3413_
     assert len(tmss) == 3
 
     tmss = parse_capabilities(os_27700_xml)
+    with open('tests/27700.json', 'w') as f:
+        f.write(tmss[0].model_dump_json(indent=2))
     assert len(tmss) == 2

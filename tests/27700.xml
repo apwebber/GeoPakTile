@@ -38,7 +38,7 @@
         <ows:Operation name="GetCapabilities">
             <ows:DCP>
                 <ows:HTTP>
-                    <ows:Get xlink:href="https://api.os.uk/maps/raster/v1/wmts?key=wg5rNAtDxj1wLBA0ORjH0kdbXaSeurv9&amp;">
+                    <ows:Get xlink:href="https://api.os.uk/maps/raster/v1/wmts?key=[redacted]&amp;">
                         <ows:Constraint name="GetEncoding">
                             <ows:AllowedValues>
                                 <ows:Value>KVP</ows:Value>
@@ -51,7 +51,7 @@
         <ows:Operation name="GetTile">
             <ows:DCP>
                 <ows:HTTP>
-                    <ows:Get xlink:href="https://api.os.uk/maps/raster/v1/wmts?key=wg5rNAtDxj1wLBA0ORjH0kdbXaSeurv9&amp;">
+                    <ows:Get xlink:href="https://api.os.uk/maps/raster/v1/wmts?key=[redacted]&amp;">
                         <ows:Constraint name="GetEncoding">
                             <ows:AllowedValues>
                                 <ows:Value>KVP</ows:Value>
@@ -848,5 +848,5 @@
             </TileMatrix>
         </TileMatrixSet>
     </Contents>
-    <ServiceMetadataURL xlink:href="https://api.os.uk/maps/raster/v1/wmts?key=wg5rNAtDxj1wLBA0ORjH0kdbXaSeurv9&amp;REQUEST=GetCapabilities&amp;VERSION=1.0.0"/>
+    <ServiceMetadataURL xlink:href="https://api.os.uk/maps/raster/v1/wmts?key=[redacted]&amp;REQUEST=GetCapabilities&amp;VERSION=1.0.0"/>
 </Capabilities>

@@ -1,9 +1,11 @@
-from pathlib import Path
 import pickle
+from pathlib import Path
+
 import morecantile
 import numpy as np
 import pytest
 import requests
+import rasterio
 
 from pygeopkgxyz.pygeopkgxyz import GPKGXYZ
 
@@ -59,7 +61,7 @@ def osm_tiles_z0_z3() -> list[tuple[int, int, int, bytes]]:
 
 
 @pytest.fixture()
-def test_gpkg() -> Path:
+def test_gpkg_path() -> Path:
     p = Path("tests/out/test.gpkg")
     p.parent.mkdir(parents=True, exist_ok=True)
     p.unlink(missing_ok=True)
@@ -74,22 +76,36 @@ def test_27700_gpkg() -> Path:
     return p
 
 
-def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg):
+def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg_path):
 
-    gpkg = GPKGXYZ(test_gpkg, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc')
+    gpkg = GPKGXYZ(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc')
     gpkg.add_tiles(osm_tiles_z0_z3)
     gpkg.close()
+
+    with rasterio.open(test_gpkg_path) as src:
+        assert src.count == 4
+        assert src.width > 0
+        assert src.height > 0
+        assert len(src.overviews(1)) == 3
+        assert src.crs.to_string() == "EPSG:3857"
     
 
-def test_geopackage_creation_context(osm_tiles_z0_z3, test_gpkg):
+def test_geopackage_creation_context(osm_tiles_z0_z3, test_gpkg_path):
 
-    with GPKGXYZ(test_gpkg, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
+    with GPKGXYZ(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
 
+    with rasterio.open(test_gpkg_path) as src:
+            assert src.count == 4
+            assert src.width > 0
+            assert src.height > 0
+            assert len(src.overviews(1)) == 3
+            assert src.crs.to_string() == "EPSG:3857"
 
-def test_has_tile(osm_tiles_z0_z3, test_gpkg):
 
-    with GPKGXYZ(test_gpkg, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
+def test_has_tile(osm_tiles_z0_z3, test_gpkg_path):
+
+    with GPKGXYZ(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
 
         for t in osm_tiles_z0_z3:
@@ -98,9 +114,9 @@ def test_has_tile(osm_tiles_z0_z3, test_gpkg):
         assert not gpkg.has_tile(0, 0, 99999)
 
 
-def test_has_tiles(osm_tiles_z0_z3, test_gpkg):
+def test_has_tiles(osm_tiles_z0_z3, test_gpkg_path):
 
-    with GPKGXYZ(test_gpkg, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
+    with GPKGXYZ(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
         
         # All tiles present

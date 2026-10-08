@@ -1,11 +1,9 @@
-import json
 from pathlib import Path
-
+import pickle
 import morecantile
 import numpy as np
 import pytest
 import requests
-from morecantile import TileMatrixSet
 
 from pygeopkgxyz.pygeopkgxyz import GPKGXYZ
 
@@ -13,15 +11,21 @@ from pygeopkgxyz.pygeopkgxyz import GPKGXYZ
 @pytest.fixture()
 def osm_tiles_z0_z3() -> list[tuple[int, int, int, bytes]]:
     """
-    Download OpenStreetMap XYZ tiles for zoom levels 0 and 1.
+    Download OpenStreetMap XYZ tiles for zoom levels 0 to 3.
 
     Returns
     -------
-    list[pathlib.Path]
-        Local paths to downloaded PNG tiles.
+    list[tuple[int, int, int, bytes]]
+        List of tuples containing zoom level, x, y coordinates and tile bytes.
     """
 
     root = Path("tests/data/osmtiles")
+    pickle_path = root / "osm_tiles_z0_z3.pkl"
+    
+    if pickle_path.exists():
+        with open(pickle_path, "rb") as f:
+            tiles = pickle.load(f)
+        return tiles
 
     tiles: list[tuple[int, int, int, bytes]] = []
 
@@ -47,6 +51,10 @@ def osm_tiles_z0_z3() -> list[tuple[int, int, int, bytes]]:
 
                 tiles.append((z, x, y, path.read_bytes()))
 
+    # Save tiles to pickle file
+    with open(pickle_path, "wb") as f:
+        pickle.dump(tiles, f)
+
     return tiles
 
 
@@ -64,16 +72,6 @@ def test_27700_gpkg() -> Path:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.unlink(missing_ok=True)
     return p
-
-@pytest.fixture
-def os_27700_tms() -> TileMatrixSet:
-    """
-    EPSG:27700 TileMatrixSet as published by the OS Maps API, using the
-    OGC 0.28mm standardized pixel size. 14 zoom levels (0-13), consistent
-    TopLeftCorner across all levels.
-    """
-    data = json.loads(Path("tests/27700.json").read_text())
-    return TileMatrixSet.model_validate(data)
 
 
 def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg):

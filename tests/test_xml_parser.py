@@ -4,7 +4,7 @@ import diskcache
 import pytest
 import requests
 
-from pygeopkgxyz.xml_parser import parse_capabilities
+from geopaktile import parse_capabilities
 
 xml_cache = diskcache.Cache('tests/.diskcache/xml')
 EXPIRE = 2.592e6 # 30 days

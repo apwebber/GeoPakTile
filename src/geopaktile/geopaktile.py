@@ -19,7 +19,7 @@ from pyproj import CRS
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
-class GPKGXYZ:
+class GeoPakTile:
     DEFAULT_PRAGMAS: ClassVar[dict[str, str]] = {
         "synchronous": "NORMAL",
         "journal_mode": "WAL",

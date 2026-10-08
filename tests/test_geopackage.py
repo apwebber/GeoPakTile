@@ -4,10 +4,10 @@ from pathlib import Path
 import morecantile
 import numpy as np
 import pytest
-import requests
 import rasterio
+import requests
 
-from pygeopkgxyz.pygeopkgxyz import GPKGXYZ
+from geopaktile import GeoPakTile
 
 
 @pytest.fixture()
@@ -78,7 +78,7 @@ def test_27700_gpkg() -> Path:
 
 def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg_path):
 
-    gpkg = GPKGXYZ(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc')
+    gpkg = GeoPakTile(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc')
     gpkg.add_tiles(osm_tiles_z0_z3)
     gpkg.close()
 
@@ -92,7 +92,7 @@ def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg_path):
 
 def test_geopackage_creation_context(osm_tiles_z0_z3, test_gpkg_path):
 
-    with GPKGXYZ(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
+    with GeoPakTile(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
 
     with rasterio.open(test_gpkg_path) as src:
@@ -105,7 +105,7 @@ def test_geopackage_creation_context(osm_tiles_z0_z3, test_gpkg_path):
 
 def test_has_tile(osm_tiles_z0_z3, test_gpkg_path):
 
-    with GPKGXYZ(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
+    with GeoPakTile(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
 
         for t in osm_tiles_z0_z3:
@@ -116,7 +116,7 @@ def test_has_tile(osm_tiles_z0_z3, test_gpkg_path):
 
 def test_has_tiles(osm_tiles_z0_z3, test_gpkg_path):
 
-    with GPKGXYZ(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
+    with GeoPakTile(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
         
         # All tiles present

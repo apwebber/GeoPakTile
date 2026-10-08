@@ -2,6 +2,7 @@ import re
 import sqlite3
 import sys
 from collections.abc import Iterable
+from os import PathLike
 from pathlib import Path
 
 if sys.version_info >= (3, 11):
@@ -27,7 +28,7 @@ class GPKGXYZ:
 
     def __init__(
         self,
-        filepath,
+        filepath: str | PathLike,
         tms: TileMatrixSet,
         table_name: str = "tiles",
         mode: Literal["ro", "rw", "rwc"] = "ro",
@@ -36,10 +37,11 @@ class GPKGXYZ:
         """Create and or write tiles to a geopackage XYZ tile layer.
 
         A tile matrix set is required in order to get the correct co-ordinates for the tiles and data extents.
-        3857 Web mercator tms set can be generated with the external function create_web_mercator_tms()
+        These are provided by the `morecantile` library, or can be parsed from a WMTS capabilities document using the
+        `pygeopkgxyz.xml_parser.parse_tile_matrix_set` function.
 
         Args:
-            filepath (_type_): where the geopackage is or should be created
+            filepath (str | PathLike): where the geopackage is or should be created
             tms (TileMatrixSet): Describes the tile coordinates and data extent
             table_name (str, optional): The name of the tile table/layer. Defaults to "tiles".
             mode (Literal[ro, rw, rwc], optional): Sqlite3 connection modes. ro = read only, rw is
@@ -60,7 +62,7 @@ class GPKGXYZ:
             raise ValueError("Mode must be ro, rw or rwc")
 
         if mode in ["ro", "rw"] and not self.filepath.exists():
-            raise OSError("geopackage not found")
+            raise FileNotFoundError("geopackage not found")
 
         file_string = f"{self.filepath.absolute().as_uri()}?mode={mode}"
         self._conn = sqlite3.connect(file_string, uri=True)

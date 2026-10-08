@@ -1,4 +1,4 @@
-# PyGeopkgXYZ
+# GeoPakTile
 
 For writing geopackage XYZ raster tile layers, with support for using arbitrary grid systems.
 

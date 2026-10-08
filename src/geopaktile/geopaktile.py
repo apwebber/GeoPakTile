@@ -38,7 +38,7 @@ class GeoPakTile:
 
         A tile matrix set is required in order to get the correct co-ordinates for the tiles and data extents.
         These are provided by the `morecantile` library, or can be parsed from a WMTS capabilities document using the
-        `pygeopkgxyz.xml_parser.parse_tile_matrix_set` function.
+        `xml_parser.parse_tile_matrix_set` function.
 
         Args:
             filepath (str | PathLike): where the geopackage is or should be created

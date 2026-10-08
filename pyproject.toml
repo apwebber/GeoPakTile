@@ -8,13 +8,30 @@ authors = [
 ]
 license = "MIT"
 license-files = ["LICENSE.md"]
+keywords = ["GIS", "Geopackage", "Tiles", "XYZ", "gpkg"]
 requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+
+    # Specify the Python versions you support here.
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 dependencies = [
     "typing_extensions>=4.0; python_version < '3.11'",
     "morecantile>=6.2.0",
     "numpy>=2.2.6",
     "requests>=2.34.2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/apwebber/GeoPakTile"
+Documentation = "https://github.com/apwebber/GeoPakTile"
+Repository = "https://github.com/apwebber/GeoPakTile.git"   
+Issues = "https://github.com/apwebber/GeoPakTile/issues"
 
 [project.scripts]
 geopaktile = "geopaktile:main"

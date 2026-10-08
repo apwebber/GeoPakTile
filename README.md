@@ -9,7 +9,7 @@ Geopackage XYZ files can use any tile grid system, this is often defined by a se
 Write tiles to a new geopackage using web mercator (similar to mbtiles), where tiles is a list of (z, x, y, bytes). `tms` is a morecantile `TileMatrixSet` - the standard web mercator can be obtained with `morecantile.tms.get('WebMercatorQuad')`
 
 ```
-with GPKGXYZ(test_gpkg, tms=morecantile.tms.get('WebMercatorQuad'), mode='rwc') as gpkg:
+with GeoPakTile(test_gpkg, tms=morecantile.tms.get('WebMercatorQuad'), mode='rwc') as gpkg:
     gpkg.add_tiles(tiles)
 ```
 
@@ -21,14 +21,14 @@ tms = tms_set[0] # you'll need to know which one you want, or use:
 
 tms = get_tile_matrix_set(xml, identifier = '1km') # an identifier that you know is defined in the xml
 
-with GPKGXYZ(test_gpkg, tms=tms, mode='rwc') as gpkg:
+with GeoPakTile(test_gpkg, tms=tms, mode='rwc') as gpkg:
     gpkg.add_tiles(tiles)
 ```
 
 
 ### TileMatrixSet models
 
-Grid definitions use the [morecantile](https://github.com/developmentseed/morecantile) package (`morecantile.TileMatrixSet`, `TileMatrix`, etc.) so any morecantile TileMatrixSet (built-in or custom-loaded) can be passed to `GPKGXYZ`. The XML parser returns morecantile `TileMatrixSet` objects.
+Tile Matrix definitions use the [morecantile](https://github.com/developmentseed/morecantile) package (`morecantile.TileMatrixSet`, `TileMatrix`, etc.) so any morecantile TileMatrixSet (built-in or custom-loaded) can be passed to `GeoPakTile`. The XML parser returns morecantile `TileMatrixSet` objects.
 
 ### XML Parser
 

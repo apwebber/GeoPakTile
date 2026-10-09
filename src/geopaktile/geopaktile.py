@@ -159,7 +159,8 @@ class GeoPakTile:
             )
             VALUES (?, ?, ?, ?)
         """
-
+        tiles = list(tiles)
+        
         zs = {t[0] for t in tiles}
         for z in zs:
             self._ensure_zoom_level(z)

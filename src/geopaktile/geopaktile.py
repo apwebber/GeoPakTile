@@ -160,7 +160,7 @@ class GeoPakTile:
             VALUES (?, ?, ?, ?)
         """
         tiles = list(tiles)
-        
+
         zs = {t[0] for t in tiles}
         for z in zs:
             self._ensure_zoom_level(z)
@@ -170,9 +170,6 @@ class GeoPakTile:
             z = int(z)
             x = int(x)
             y = int(y)
-
-            if self.has_tile(z, x, y):
-                continue
 
             batch.append((z, x, y, sqlite3.Binary(tile_bytes)))
             if len(batch) >= batch_size:

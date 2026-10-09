@@ -45,5 +45,6 @@ build-backend = "uv_build"
 dev = [
     "pytest",
     "diskcache",
-    "rasterio"
+    "rasterio",
+    "rio-cogeo>=6.0.0",
 ]

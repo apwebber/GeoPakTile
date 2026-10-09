@@ -293,6 +293,8 @@ dev = [
     { name = "pytest" },
     { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "rasterio", version = "1.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "rio-cogeo", version = "6.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "rio-cogeo", version = "7.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 
 [package.metadata]
@@ -309,6 +311,7 @@ dev = [
     { name = "diskcache" },
     { name = "pytest" },
     { name = "rasterio" },
+    { name = "rio-cogeo", specifier = ">=6.0.0" },
 ]
 
 [[package]]
@@ -1092,6 +1095,44 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz", hash = "sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed", size = 142856, upload-time = "2026-05-14T19:25:27.735Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl", hash = "sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0", size = 73075, upload-time = "2026-05-14T19:25:26.443Z" },
+]
+
+[[package]]
+name = "rio-cogeo"
+version = "6.0.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.11'",
+]
+dependencies = [
+    { name = "click", marker = "python_full_version < '3.11'" },
+    { name = "morecantile", version = "6.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pydantic", marker = "python_full_version < '3.11'" },
+    { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3b/14/1c00dc4795ac3ee6a040d79e215ad9f84e14ef04d04fd592fdd0f62504bb/rio_cogeo-6.0.0.tar.gz", hash = "sha256:d215904c3b348edda1e38340f0dfdda5ffdf865ab9871df1fc55b6142dd58bb3", size = 21189, upload-time = "2025-11-05T10:37:21.794Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/09/20/a0c389d48533e78b9626b4ebde1d6ca5b6ac483834ffff1d29f5f04f362c/rio_cogeo-6.0.0-py3-none-any.whl", hash = "sha256:eb0e50026039137f956002e115b0cc0ddf35e92598abf9e7f229f708ad8ab7d2", size = 21092, upload-time = "2025-11-05T10:37:20.496Z" },
+]
+
+[[package]]
+name = "rio-cogeo"
+version = "7.0.3"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+]
+dependencies = [
+    { name = "click", marker = "python_full_version >= '3.11'" },
+    { name = "morecantile", version = "7.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pydantic", marker = "python_full_version >= '3.11'" },
+    { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "rasterio", version = "1.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/68/de/e81e743e304a46da2f89540dae0f15a793b9c62fcad2a1229687bb8a3b38/rio_cogeo-7.0.3.tar.gz", hash = "sha256:1e0104c49908d3175c5647b8ee2c5ed9f86cca84afe88af0ef623f28d85a1850", size = 19305, upload-time = "2026-09-24T08:00:52.493Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9a/65/b610e10335c2d40170864486e12d88eb5888222c58b4bf17d73c780c1841/rio_cogeo-7.0.3-py3-none-any.whl", hash = "sha256:63b33767251002e9f3692772aa88282cd465c1412834d9462a2e30d1c7e77472", size = 21863, upload-time = "2026-09-24T08:00:51.292Z" },
 ]
 
 [[package]]

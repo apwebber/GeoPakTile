@@ -1,3 +1,4 @@
+import math
 import pickle
 from pathlib import Path
 
@@ -6,8 +7,35 @@ import numpy as np
 import pytest
 import rasterio
 import requests
+from morecantile.commons import BoundingBox
+from rio_cogeo.cogeo import cog_validate
 
 from geopaktile import GeoPakTile, gpkg_tiles_to_cog
+
+
+def _get_osm_tile(z: int, x: int, y: int) -> bytes:
+    """
+    Download an OpenStreetMap XYZ tile.
+
+    Parameters
+    ----------
+    z : int
+        Zoom level.
+    x : int
+        X coordinate.
+    y : int
+        Y coordinate.
+
+    Returns
+    -------
+    bytes
+        The tile image data in bytes.
+    """
+    url = f"https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    headers = {"User-Agent": "pytest-osm-tile-fixture/1.0"}
+    response = requests.get(url, headers=headers, timeout=30)
+    response.raise_for_status()
+    return response.content
 
 
 @pytest.fixture()
@@ -24,8 +52,6 @@ def osm_tiles_z0_z3() -> list[tuple[int, int, int, bytes]]:
     root = Path("tests/data/osmtiles/z0_z3")
     tiles: list[tuple[int, int, int, bytes]] = []
 
-    headers = {"User-Agent": "pytest-osm-tile-fixture/1.0"}
-
     for z in range(4):
         for x in range(2**z):
             for y in range(2**z):
@@ -33,23 +59,15 @@ def osm_tiles_z0_z3() -> list[tuple[int, int, int, bytes]]:
                 path.parent.mkdir(parents=True, exist_ok=True)
 
                 if not path.exists():
-                    url = f"https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-
-                    response = requests.get(
-                        url,
-                        headers=headers,
-                        timeout=30,
-                    )
-                    response.raise_for_status()
-
-                    path.write_bytes(response.content)
+                    content = _get_osm_tile(z, x, y)
+                    path.write_bytes(content)
 
                 tiles.append((z, x, y, path.read_bytes()))
 
     return tiles
 
 @pytest.fixture()
-def os_tiles_small_to_15():
+def os_tiles_small_to_15() -> tuple[list[tuple[int, int, int, bytes]], BoundingBox]:
 
     root = Path("tests/data/osmtiles/small_to_z15")
     pickle_path = root / "osm_tiles_small_to_15.pkl"
@@ -61,13 +79,23 @@ def os_tiles_small_to_15():
         return tiles
 
     tms = morecantile.tms.get("WebMercatorQuad")
+    tms_tiles = list(
+        tms.tiles(
+            west=-3.968,
+            south=50.554,
+            east=-3.963,
+            north=50.56,
+            zooms=list(range(16)),
+        )
+    )
 
-    tms_tiles = tms.tiles(
-        west=-3.968,
-        south=50.554,
-        east=-3.963,
-        north=50.56,
-        zooms=list(range(16)),
+    # Compute the overall extent of the tile set in geographic coordinates.
+    tile_bounds = [tms.xy_bounds(tile) for tile in tms_tiles]
+    overall_bbox = BoundingBox(
+        min(bounds[0] for bounds in tile_bounds),
+        min(bounds[1] for bounds in tile_bounds),
+        max(bounds[2] for bounds in tile_bounds),
+        max(bounds[3] for bounds in tile_bounds),
     )
 
     tiles: list[tuple[int, int, int, bytes]] = []
@@ -77,20 +105,12 @@ def os_tiles_small_to_15():
         path.parent.mkdir(parents=True, exist_ok=True)
 
         if not path.exists():
-            url = f"https://tile.openstreetmap.org/{t.z}/{t.x}/{t.y}.png"
-
-            response = requests.get(
-                url,
-                headers={"User-Agent": "pytest-osm-tile-fixture/1.0"},
-                timeout=30,
-            )
-            response.raise_for_status()
-
-            path.write_bytes(response.content)
+            content = _get_osm_tile(t.z, t.x, t.y)
+            path.write_bytes(content)
 
         tiles.append((t.z, t.x, t.y, path.read_bytes()))
 
-    return tiles
+    return tiles, overall_bbox
 
 @pytest.fixture()
 def test_gpkg_path() -> Path:
@@ -132,6 +152,15 @@ def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg_path):
     cog_path = test_gpkg_path.with_suffix(".cog.tif")
     gpkg_tiles_to_cog(test_gpkg_path, cog_path, overwrite=True)
 
+    with rasterio.open(cog_path) as src:
+        assert src.count == 4
+        assert src.width > 0
+        assert src.height > 0
+        assert len(src.overviews(1)) == 3
+        assert src.crs.to_string() == "EPSG:3857"
+
+    assert cog_validate(cog_path)[0]
+
 def test_geopackage_creation_context(osm_tiles_z0_z3, test_gpkg_path):
 
     with GeoPakTile(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
@@ -146,8 +175,10 @@ def test_geopackage_creation_context(osm_tiles_z0_z3, test_gpkg_path):
 
 def test_geopackage_creation_context_z15(os_tiles_small_to_15, test_gpkg_path_z15):
 
+    tiles, bbox = os_tiles_small_to_15
+
     with GeoPakTile(test_gpkg_path_z15, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
-        gpkg.add_tiles(os_tiles_small_to_15)
+        gpkg.add_tiles(tiles)
 
     with rasterio.open(test_gpkg_path_z15) as src:
             assert src.count == 4
@@ -155,9 +186,22 @@ def test_geopackage_creation_context_z15(os_tiles_small_to_15, test_gpkg_path_z1
             assert src.height > 0
             assert len(src.overviews(1)) == 15
             assert src.crs.to_string() == "EPSG:3857"
+            assert math.isclose(src.bounds.left, bbox.left, rel_tol=1e-5)
+            assert math.isclose(src.bounds.bottom, bbox.bottom, rel_tol=1e-5)
+            assert math.isclose(src.bounds.right, bbox.right, rel_tol=1e-5)
+            assert math.isclose(src.bounds.top, bbox.top, rel_tol=1e-5)
 
     cog_path = test_gpkg_path_z15.with_suffix(".cog.tif")
     gpkg_tiles_to_cog(test_gpkg_path_z15, cog_path, overwrite=True)
+
+    with rasterio.open(cog_path) as src:
+        assert src.count == 4
+        assert src.width > 0
+        assert src.height > 0
+        assert len(src.overviews(1)) == 8 # not 15 - any more than this results in less than 1 pixel in the overviews
+        assert src.crs.to_string() == "EPSG:3857"
+
+    assert cog_validate(cog_path)[0]
 
 def test_has_tile(osm_tiles_z0_z3, test_gpkg_path):
 

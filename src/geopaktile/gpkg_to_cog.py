@@ -84,7 +84,7 @@ def _as_int(value: float, what: str) -> int:
             "Zoom levels may not be exact multiples of each other.",
             stacklevel=3,
         )
-    return int(round(value))
+    return round(value)
 
 
 def gpkg_tiles_to_cog(

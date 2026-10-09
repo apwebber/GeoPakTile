@@ -29,7 +29,7 @@ class GeoPakTile:
     def __init__(
         self,
         filepath: str | PathLike,
-        tms: TileMatrixSet,
+        tms: TileMatrixSet = None,
         table_name: str = "tiles",
         mode: Literal["ro", "rw", "rwc"] = "ro",
         pragmas: dict[str, str] | None = None,
@@ -63,6 +63,11 @@ class GeoPakTile:
 
         if mode in ["ro", "rw"] and not self.filepath.exists():
             raise FileNotFoundError("geopackage not found")
+
+        if mode in ["rw", "rwc"] and self.tms is None:
+            raise ValueError(
+                "A TileMatrixSet is required to create or write to a geopackage."
+            )
 
         self._mode = mode
         file_string = f"{self.filepath.absolute().as_uri()}?mode={mode}"

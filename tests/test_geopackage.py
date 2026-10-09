@@ -208,6 +208,8 @@ def test_has_tile(osm_tiles_z0_z3, test_gpkg_path):
     with GeoPakTile(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
 
+    # repoen in read-only mode
+    with GeoPakTile(test_gpkg_path, mode='ro') as gpkg:
         for t in osm_tiles_z0_z3:
             assert gpkg.has_tile(t[0], t[1], t[2])
         
@@ -218,6 +220,9 @@ def test_has_tiles(osm_tiles_z0_z3, test_gpkg_path):
 
     with GeoPakTile(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
+
+    # repoen in read-only mode
+    with GeoPakTile(test_gpkg_path, mode='ro') as gpkg:
         
         # All tiles present
         zxys = [(t[0], t[1], t[2]) for t in osm_tiles_z0_z3]

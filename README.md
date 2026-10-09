@@ -25,12 +25,12 @@ with GeoPakTile(test_gpkg, tms=morecantile.tms.get('WebMercatorQuad'), mode='rwc
     gpkg.add_tiles(tiles)
 ```
 
-Open a geopackage in read only mode and see if it contains certain tiles
+Open a geopackage in read only mode and see if it contains certain tiles. A TileMatrixSet isn't required for read-only mode.
 
 ```python
 from geopaktile import GeoPakTile
 
-with GeoPakTile(test_gpkg, tms=morecantile.tms.get('WebMercatorQuad'), mode='ro') as gpkg:
+with GeoPakTile(test_gpkg, mode='ro') as gpkg:
     assert gpkg.has_tile(z, x, y)
     result = gpkg.has_tiles([(z, x, y), (z1, x1, y1)])
 ```

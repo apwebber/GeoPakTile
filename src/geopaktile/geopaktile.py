@@ -64,6 +64,7 @@ class GeoPakTile:
         if mode in ["ro", "rw"] and not self.filepath.exists():
             raise FileNotFoundError("geopackage not found")
 
+        self._mode = mode
         file_string = f"{self.filepath.absolute().as_uri()}?mode={mode}"
         self._conn = sqlite3.connect(file_string, uri=True)
         self._cursor = self._conn.cursor()
@@ -79,10 +80,19 @@ class GeoPakTile:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def close(self):
-        """Close the connection"""
-        self._cursor.close()
-        self._conn.close()
+    def close(self) -> None:
+        """Close the connection, leaving a single self-contained .gpkg file."""
+        if self._conn is None:
+            return
+        try:
+            if self._mode != "ro":
+                self._conn.commit()
+                 # Default journal mode, prevents WAL file from being left behind and creation by future read operations
+                self._conn.execute("PRAGMA journal_mode=DELETE")
+        finally:
+            self._cursor.close()
+            self._conn.close()
+            self._conn = None
 
     def has_tile(self, z: int, x: int, y: int):
         """Check if a tile is present, using the zxy coordinates"""
@@ -168,13 +178,19 @@ class GeoPakTile:
             self._cursor.executemany(insert_sql, batch)
             self._conn.commit()
 
+    # Pragmas that need write access; skipped for read-only connections.
+    _WRITE_PRAGMAS: ClassVar[frozenset[str]] = frozenset({"journal_mode", "synchronous"})
+
     def _apply_pragmas(self, overrides: dict[str, str] | None) -> None:
         merged = {**self.DEFAULT_PRAGMAS, **(overrides or {})}
         for name, value in merged.items():
-            # Ensure malicious values aren't parsed.
-            # Passes: "WAL", "NORMAL", "OFF", "EXCLUSIVE", "1000" (a plausible wal_autocheckpoint value)
-            # Blocked: "WAL; DROP TABLE tiles;--", "OFF' OR '1'='1", anything with spaces, quotes, or punctuation
+            if self._mode == "ro" and name in self._WRITE_PRAGMAS:
+                # skip pragmas that require write access when in read-only mode
+                continue
             if not str(value).replace("_", "").isalnum():
+                # Ensure malicious values aren't parsed.
+                # Passes: "WAL", "NORMAL", "OFF", "EXCLUSIVE", "1000" (a plausible wal_autocheckpoint value)
+                # Blocked: "WAL; DROP TABLE tiles;--", "OFF' OR '1'='1", anything with spaces, quotes, or punctuation
                 raise ValueError(f"Unsafe PRAGMA value for {name!r}: {value!r}")
             self._cursor.execute(f"PRAGMA {name}={value}")
 

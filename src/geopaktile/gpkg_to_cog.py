@@ -68,6 +68,35 @@ class _Plan:
     resampled: bool
 
 
+def _connect_readonly(path: str | Path) -> sqlite3.Connection:
+    r"""Open a GeoPackage read-only, trying resolve() first, then absolute().
+
+    resolve() can fail on network drives: it may raise, or turn a mapped
+    drive letter into a UNC path (\\server\share) whose file:// URI SQLite
+    rejects. absolute() keeps the path as given, which often works instead.
+    """
+    path = Path(path)
+    errors: list[str] = []
+    tried: set[str] = set()
+    for method in (Path.resolve, Path.absolute):
+        con = None
+        try:
+            uri = method(path).as_uri() + "?mode=ro"
+            if uri in tried:
+                continue
+            tried.add(uri)
+            con = sqlite3.connect(uri, uri=True)
+            con.execute("PRAGMA schema_version")  # make SQLite actually open the file
+            return con
+        except (OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
+            if con is not None:
+                con.close()
+            errors.append(f"{method.__name__}(): {exc}")
+    raise sqlite3.OperationalError(
+        f"Could not open GeoPackage {path}: " + "; ".join(errors)
+    )
+
+
 def _quote_ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
@@ -84,7 +113,7 @@ def _as_int(value: float, what: str) -> int:
             "Zoom levels may not be exact multiples of each other.",
             stacklevel=3,
         )
-    return round(value)
+    return int(round(value))
 
 
 def gpkg_tiles_to_cog(
@@ -102,6 +131,7 @@ def gpkg_tiles_to_cog(
     compress: str = "DEFLATE",
     blocksize: int | None = None,
     overwrite: bool = False,
+    tmp_dir: str | Path | None = None,
 ) -> Path:
     """Convert a GeoPackage tile layer to a COG, using zoom levels as overviews.
 
@@ -128,6 +158,9 @@ def gpkg_tiles_to_cog(
         compress: COG compression, e.g. "DEFLATE", "ZSTD", "LZW", "WEBP", "JPEG".
         blocksize: COG internal tile size. Defaults to the GeoPackage tile width.
         overwrite: Replace an existing output file.
+        tmp_dir: Directory for the temporary per-zoom mosaics, which can need
+            about as much space as the output. Defaults to the output file's
+            directory, so they go on the same drive as the COG.
 
     Returns:
         Path to the written COG.
@@ -146,8 +179,7 @@ def gpkg_tiles_to_cog(
     if cog_path.exists() and not overwrite:
         raise FileExistsError(f"{cog_path} exists; pass overwrite=True")
 
-    uri = Path(gpkg_path).absolute().as_uri() + "?mode=ro"
-    con = sqlite3.connect(uri, uri=True)
+    con = _connect_readonly(gpkg_path)
     try:
         # --- Tile table, tile matrix set and CRS ----------------------------
         tables = [
@@ -293,7 +325,9 @@ def gpkg_tiles_to_cog(
         if blocksize is None:
             blocksize = base.tile_width
 
-        with tempfile.TemporaryDirectory(prefix="gpkg2cog_") as tmp:
+        if tmp_dir is None:
+            tmp_dir = cog_path.absolute().parent  # absolute(): resolve() can fail on network drives
+        with tempfile.TemporaryDirectory(prefix="gpkg2cog_", dir=tmp_dir) as tmp:
             tmpdir = Path(tmp)
             level_files: list[Path] = []
 
@@ -506,3 +540,40 @@ def _pyramid_vrt(
         parts.append("  </VRTRasterBand>")
     parts.append("</VRTDataset>")
     return "\n".join(parts)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("gpkg")
+    parser.add_argument("cog")
+    parser.add_argument("--table")
+    parser.add_argument(
+        "--bbox", type=float, nargs=4, metavar=("MINX", "MINY", "MAXX", "MAXY")
+    )
+    parser.add_argument("--bbox-crs")
+    parser.add_argument("--min-zoom", type=int)
+    parser.add_argument("--max-zoom", type=int)
+    parser.add_argument("--resample-unaligned", action="store_true")
+    parser.add_argument("--resampling", default="bilinear")
+    parser.add_argument("--bands", default="RGBA", choices=sorted(SUPPORTED_BANDS))
+    parser.add_argument("--compress", default="DEFLATE")
+    parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--tmp-dir", help="directory for temporary files")
+    args = parser.parse_args()
+    gpkg_tiles_to_cog(
+        args.gpkg,
+        args.cog,
+        args.table,
+        bbox=args.bbox,
+        bbox_crs=args.bbox_crs,
+        min_zoom=args.min_zoom,
+        max_zoom=args.max_zoom,
+        resample_unaligned=args.resample_unaligned,
+        resampling=args.resampling,
+        bands=args.bands,
+        compress=args.compress,
+        overwrite=args.overwrite,
+        tmp_dir=args.tmp_dir,
+    )

@@ -146,7 +146,7 @@ def gpkg_tiles_to_cog(
     if cog_path.exists() and not overwrite:
         raise FileExistsError(f"{cog_path} exists; pass overwrite=True")
 
-    uri = Path(gpkg_path).resolve().as_uri() + "?mode=ro"
+    uri = Path(gpkg_path).absolute().as_uri() + "?mode=ro"
     con = sqlite3.connect(uri, uri=True)
     try:
         # --- Tile table, tile matrix set and CRS ----------------------------

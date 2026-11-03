@@ -34,7 +34,7 @@ from xml.sax.saxutils import escape
 import numpy as np
 import rasterio
 import rasterio.shutil
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from rasterio.crs import CRS
 from rasterio.enums import Resampling
 from rasterio.transform import Affine, from_origin
@@ -66,6 +66,123 @@ class _Plan:
     col_off: int  # used only when not resampled
     row_off: int
     resampled: bool
+
+
+class BadTileError(ValueError):
+    """A tile's data couldn't be decoded as an image."""
+
+
+# Leading bytes of formats a tile is likely to contain, for diagnostics.
+_SIGNATURES = [
+    (b"\x89PNG\r\n\x1a\n", "PNG"),
+    (b"\xff\xd8\xff", "JPEG"),
+    (b"GIF87a", "GIF"),
+    (b"GIF89a", "GIF"),
+    (b"II*\x00", "TIFF"),
+    (b"MM\x00*", "TIFF"),
+    (b"\x1f\x8b", "gzip-compressed data (often a vector tile, not an image)"),
+    (b"\x78\x9c", "zlib-compressed data"),
+]
+
+
+def _describe_tile(data: object) -> str:
+    """Summarise what a tile_data value contains, to explain a decode failure."""
+    if data is None:
+        return "tile_data is NULL"
+    if isinstance(data, str):
+        return f"tile_data is stored as TEXT, not a BLOB: {data[:80]!r}"
+    if not isinstance(data, (bytes, bytearray, memoryview)):
+        return f"tile_data has unexpected type {type(data).__name__}"
+    data = bytes(data)
+    if not data:
+        return "tile_data is empty (0 bytes)"
+
+    size = f"{len(data):,} bytes"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return f"{size}, starts like WebP"
+    for signature, name in _SIGNATURES:
+        if data.startswith(signature):
+            return f"{size}, starts like {name}"
+
+    # Error responses saved in place of tiles (HTML, XML, JSON) are text.
+    head = data[:200]
+    try:
+        text = head.decode("utf-8")
+    except UnicodeDecodeError:
+        text = None
+    if text is not None and all(c.isprintable() or c.isspace() for c in text):
+        return f"{size} of text, not image data: {text.strip()[:150]!r}"
+    return f"{size}, unrecognised format; first bytes: {data[:16].hex(' ')}"
+
+
+def _decode_tile(
+    data: object, bands: str, tile_size: tuple[int, int], where: str
+) -> np.ndarray:
+    """Decode one tile to a (height, width, bands) array, or raise BadTileError."""
+    try:
+        with Image.open(io.BytesIO(data)) as img:  # type: ignore[arg-type]
+            if img.size != tile_size:
+                raise BadTileError(
+                    f"{where} is {img.size[0]}x{img.size[1]} pixels, "
+                    f"expected {tile_size[0]}x{tile_size[1]}"
+                )
+            # Image.open is lazy: truncated data only fails when decoded here.
+            return np.asarray(img.convert(bands))
+    except BadTileError:
+        raise
+    except (UnidentifiedImageError, OSError, SyntaxError, TypeError, ValueError) as exc:
+        message = f"{where} could not be decoded: {_describe_tile(data)}"
+        # Pillow's "cannot identify image file <BytesIO ...>" adds nothing to
+        # the description; other errors (e.g. truncation) are worth keeping.
+        if not isinstance(exc, (UnidentifiedImageError, TypeError)):
+            message += f" ({type(exc).__name__}: {exc})"
+        raise BadTileError(message) from exc
+
+
+def check_tiles(
+    gpkg_path: str | Path, table: str | None = None, bands: str = "RGBA"
+) -> list[str]:
+    """Try to decode every tile in a layer and describe each one that fails.
+
+    Useful before a long conversion, or to investigate a BadTileError.
+    Returns an empty list if every tile decodes.
+    """
+    con = _connect_readonly(gpkg_path)
+    try:
+        if table is None:
+            tables = [
+                r[0]
+                for r in con.execute(
+                    "SELECT table_name FROM gpkg_contents WHERE data_type = 'tiles'"
+                )
+            ]
+            if len(tables) != 1:
+                raise ValueError(f"Specify table=; tile tables found: {tables}")
+            table = tables[0]
+        sizes = {
+            z: (w, h)
+            for z, w, h in con.execute(
+                "SELECT zoom_level, tile_width, tile_height FROM gpkg_tile_matrix "
+                "WHERE table_name = ?",
+                (table,),
+            )
+        }
+        problems = []
+        for z, col, row, data in con.execute(
+            f"SELECT zoom_level, tile_column, tile_row, tile_data "
+            f"FROM {_quote_ident(table)} ORDER BY zoom_level, tile_row, tile_column"
+        ):
+            where = f"Tile z={z} col={col} row={row}"
+            if z not in sizes:
+                problems.append(f"{where} has no gpkg_tile_matrix entry")
+                continue
+            try:
+                _decode_tile(data, bands, sizes[z], where)
+            except BadTileError as exc:
+                problems.append(str(exc))
+        return problems
+    finally:
+        con.close()
 
 
 def _connect_readonly(path: str | Path) -> sqlite3.Connection:
@@ -132,6 +249,7 @@ def gpkg_tiles_to_cog(
     blocksize: int | None = None,
     overwrite: bool = False,
     tmp_dir: str | Path | None = None,
+    skip_bad_tiles: bool = False,
 ) -> Path:
     """Convert a GeoPackage tile layer to a COG, using zoom levels as overviews.
 
@@ -161,6 +279,8 @@ def gpkg_tiles_to_cog(
         tmp_dir: Directory for the temporary per-zoom mosaics, which can need
             about as much space as the output. Defaults to the output file's
             directory, so they go on the same drive as the COG.
+        skip_bad_tiles: Leave tiles that can't be decoded empty and warn,
+            instead of raising BadTileError at the first one.
 
     Returns:
         Path to the written COG.
@@ -330,6 +450,7 @@ def gpkg_tiles_to_cog(
         with tempfile.TemporaryDirectory(prefix="gpkg2cog_", dir=tmp_dir) as tmp:
             tmpdir = Path(tmp)
             level_files: list[Path] = []
+            bad_tiles: list[str] | None = [] if skip_bad_tiles else None
 
             for p in plan:
                 lv = p.level
@@ -339,14 +460,25 @@ def gpkg_tiles_to_cog(
                         con, qtable, lv, path, crs, tmpdir,
                         (tms_min_x, tms_max_y), (x0, y0, x1, y1),
                         p.width, p.height, bands, n_bands, resampling_method,
+                        bad_tiles,
                     )
                 else:
                     _mosaic_level(
                         con, qtable, lv, path, crs,
                         p.col_off, p.row_off, p.width, p.height,
                         from_origin(x0, y1, lv.px, lv.py), bands, n_bands,
+                        bad_tiles,
                     )
                 level_files.append(path)
+
+            if bad_tiles:
+                shown = "\n  ".join(bad_tiles[:10])
+                more = f"\n  ...and {len(bad_tiles) - 10} more" if len(bad_tiles) > 10 else ""
+                warnings.warn(
+                    f"Skipped {len(bad_tiles)} tile(s) that could not be decoded; "
+                    f"they are left empty in the COG:\n  {shown}{more}",
+                    stacklevel=2,
+                )
 
             vrt_path = tmpdir / "pyramid.vrt"
             vrt_path.write_text(
@@ -410,8 +542,13 @@ def _mosaic_level(
     transform: Affine,
     bands: str,
     n_bands: int,
+    bad_tiles: list[str] | None = None,
 ) -> None:
-    """Copy one zoom level's pixels inside a pixel window into a GeoTIFF."""
+    """Copy one zoom level's pixels inside a pixel window into a GeoTIFF.
+
+    Tiles that can't be decoded raise BadTileError, or, if bad_tiles is a
+    list, are described in it and left empty.
+    """
     tw, th = lv.tile_width, lv.tile_height
     first_col, last_col = col_off // tw, (col_off + width - 1) // tw
     first_row, last_row = row_off // th, (row_off + height - 1) // th
@@ -426,13 +563,14 @@ def _mosaic_level(
             (lv.zoom, first_col, last_col, first_row, last_row),
         )
         for col, row, blob in rows:
-            with Image.open(io.BytesIO(blob)) as img:
-                if img.size != (tw, th):
-                    raise ValueError(
-                        f"Tile z={lv.zoom} col={col} row={row} is {img.size}, "
-                        f"expected {(tw, th)}"
-                    )
-                pixels = np.asarray(img.convert(bands))
+            where = f"Tile z={lv.zoom} col={col} row={row}"
+            try:
+                pixels = _decode_tile(blob, bands, (tw, th), where)
+            except BadTileError as exc:
+                if bad_tiles is None:
+                    raise
+                bad_tiles.append(str(exc))
+                continue
 
             # Tile position relative to the output window, then clip to it.
             tx, ty = col * tw - col_off, row * th - row_off
@@ -461,6 +599,7 @@ def _resample_level(
     bands: str,
     n_bands: int,
     resampling: Resampling,
+    bad_tiles: list[str] | None = None,
 ) -> None:
     """Crop a level on its own grid, then resample it onto the output extent.
 
@@ -484,6 +623,7 @@ def _resample_level(
     _mosaic_level(
         con, qtable, lv, native_path, crs,
         c_lo, r_lo, c_hi - c_lo, r_hi - r_lo, native_transform, bands, n_bands,
+        bad_tiles,
     )
     with rasterio.open(native_path) as src:
         source = src.read()
@@ -561,7 +701,19 @@ if __name__ == "__main__":
     parser.add_argument("--compress", default="DEFLATE")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--tmp-dir", help="directory for temporary files")
+    parser.add_argument(
+        "--skip-bad-tiles", action="store_true",
+        help="leave tiles that can't be decoded empty instead of failing",
+    )
+    parser.add_argument(
+        "--check", action="store_true",
+        help="only report tiles that can't be decoded; don't convert",
+    )
     args = parser.parse_args()
+    if args.check:
+        problems = check_tiles(args.gpkg, args.table, args.bands)
+        print("\n".join(problems) or "All tiles decoded successfully.")
+        raise SystemExit(1 if problems else 0)
     gpkg_tiles_to_cog(
         args.gpkg,
         args.cog,
@@ -576,4 +728,5 @@ if __name__ == "__main__":
         compress=args.compress,
         overwrite=args.overwrite,
         tmp_dir=args.tmp_dir,
+        skip_bad_tiles=args.skip_bad_tiles,
     )

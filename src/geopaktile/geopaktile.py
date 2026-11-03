@@ -99,6 +99,18 @@ class GeoPakTile:
             self._conn.close()
             self._conn = None
 
+    def get_tile(self, z: int, x: int, y: int) -> bytes | None:
+        """Get a tile's image data using the zxy coordinates, or None if absent."""
+
+        self._cursor.execute(
+            f'SELECT tile_data FROM "{self.table_name}" '
+            "WHERE zoom_level=? AND tile_column=? AND tile_row=? LIMIT 1",
+            (z, x, y),
+        )
+
+        row = self._cursor.fetchone()
+        return None if row is None else row[0]
+
     def has_tile(self, z: int, x: int, y: int):
         """Check if a tile is present, using the zxy coordinates"""
 

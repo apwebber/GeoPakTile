@@ -1,3 +1,4 @@
+from typing_extensions import Iterator
 import re
 import sqlite3
 import sys
@@ -204,6 +205,28 @@ class GeoPakTile:
         if batch:
             self._cursor.executemany(insert_sql, batch)
             self._conn.commit()
+
+    def iter_tiles(self, zoom: int | None = None) -> Iterator[tuple[int, int, int]]:
+        """Yield the (z, x, y) coordinates of every tile, optionally for one zoom level."""
+
+        # A separate cursor, so calling get_tile etc. while iterating
+        # doesn't reset this query.
+        cursor = self._conn.cursor()
+        try:
+            if zoom is None:
+                cursor.execute(
+                    f'SELECT zoom_level, tile_column, tile_row FROM "{self.table_name}" '
+                    "ORDER BY zoom_level, tile_column, tile_row"
+                )
+            else:
+                cursor.execute(
+                    f'SELECT zoom_level, tile_column, tile_row FROM "{self.table_name}" '
+                    "WHERE zoom_level=? ORDER BY tile_column, tile_row",
+                    (zoom,),
+                )
+            yield from cursor
+        finally:
+            cursor.close()
 
     # Pragmas that need write access; skipped for read-only connections.
     _WRITE_PRAGMAS: ClassVar[frozenset[str]] = frozenset({"journal_mode", "synchronous"})

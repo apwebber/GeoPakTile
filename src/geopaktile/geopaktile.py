@@ -162,6 +162,31 @@ class GeoPakTile:
 
         return self._cursor.rowcount > 0
 
+    def add_tile(
+        self, z: int, x: int, y: int, data: bytes, replace: bool = False
+    ) -> bool:
+        """Add a tile using the zxy coordinates. Returns True if the tile was written.
+
+        An existing tile is left unchanged unless replace=True.
+        """
+
+        self._ensure_zoom_level(z)
+
+        if replace:
+            conflict = "DO UPDATE SET tile_data = excluded.tile_data"
+        else:
+            conflict = "DO NOTHING"
+
+        self._cursor.execute(
+            f'INSERT INTO "{self.table_name}" '
+            "(zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?) "
+            f"ON CONFLICT (zoom_level, tile_column, tile_row) {conflict}",
+            (int(z), int(x), int(y), sqlite3.Binary(data)),
+        )
+        self._conn.commit()
+
+        return self._cursor.rowcount > 0
+
     def add_tiles(
         self,
         tiles: Iterable[tuple[int, int, int, bytes]],

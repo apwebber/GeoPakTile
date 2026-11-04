@@ -1,6 +1,6 @@
 [project]
 name = "GeoPakTile"
-version = "2.1.4"
+version = "2.1.5"
 description = "Create a Geopackage XYZ Tile layer."
 readme = "README.md"
 authors = [

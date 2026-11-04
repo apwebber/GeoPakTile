@@ -1,8 +1,7 @@
-from typing_extensions import Iterator
 import re
 import sqlite3
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from os import PathLike
 from pathlib import Path
 

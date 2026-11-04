@@ -75,8 +75,8 @@ def os_tiles_small_to_15() -> tuple[list[tuple[int, int, int, bytes]], BoundingB
     
     if pickle_path.exists():
         with open(pickle_path, "rb") as f:
-            tiles = pickle.load(f)
-        return tiles
+            tiles, bounding_box = pickle.load(f)
+        return tiles, bounding_box
 
     tms = morecantile.tms.get("WebMercatorQuad")
     tms_tiles = list(
@@ -163,15 +163,38 @@ def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg_path):
 
 def test_geopackage_creation_context(osm_tiles_z0_z3, test_gpkg_path):
 
+    # Test add tiles
     with GeoPakTile(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
         gpkg.add_tiles(osm_tiles_z0_z3)
 
+    # Check it opens
     with rasterio.open(test_gpkg_path) as src:
             assert src.count == 4
             assert src.width > 0
             assert src.height > 0
             assert len(src.overviews(1)) == 3
             assert src.crs.to_string() == "EPSG:3857"
+
+    # Test remove tiles
+    t = osm_tiles_z0_z3[0]
+    with GeoPakTile(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
+        assert gpkg.remove_tile(t[0], t[1], t[2])
+        assert not gpkg.remove_tile(t[0], t[1], t[2])
+
+        present_tiles = list(gpkg.iter_tiles())
+
+    assert len(present_tiles) == len(osm_tiles_z0_z3) - 1
+
+    # Test add tile
+    t = osm_tiles_z0_z3[0]
+    with GeoPakTile(test_gpkg_path, tms=morecantile.tms.get("WebMercatorQuad"), mode='rwc') as gpkg:
+        assert gpkg.add_tile(t[0], t[1], t[2], t[3])
+        assert not gpkg.add_tile(t[0], t[1], t[2], t[3])
+        assert gpkg.add_tile(t[0], t[1], t[2], t[3], replace=True)
+
+        present_tiles = list(gpkg.iter_tiles())
+
+    assert len(present_tiles) == len(osm_tiles_z0_z3)
 
 def test_geopackage_creation_context_z15(os_tiles_small_to_15, test_gpkg_path_z15):
 

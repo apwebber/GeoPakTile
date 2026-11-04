@@ -70,13 +70,6 @@ def osm_tiles_z0_z3() -> list[tuple[int, int, int, bytes]]:
 def os_tiles_small_to_15() -> tuple[list[tuple[int, int, int, bytes]], BoundingBox]:
 
     root = Path("tests/data/osmtiles/small_to_z15")
-    pickle_path = root / "osm_tiles_small_to_15.pkl"
-    
-    
-    if pickle_path.exists():
-        with open(pickle_path, "rb") as f:
-            tiles, bounding_box = pickle.load(f)
-        return tiles, bounding_box
 
     tms = morecantile.tms.get("WebMercatorQuad")
     tms_tiles = list(

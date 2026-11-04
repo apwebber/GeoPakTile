@@ -149,6 +149,18 @@ class GeoPakTile:
 
         return np.isin(req_keys, exist_keys, assume_unique=False)
 
+    def remove_tile(self, z: int, x: int, y: int) -> bool:
+        """Remove a tile using the zxy coordinates. Returns True if a tile was removed."""
+
+        self._cursor.execute(
+            f'DELETE FROM "{self.table_name}" '
+            "WHERE zoom_level=? AND tile_column=? AND tile_row=?",
+            (z, x, y),
+        )
+        self._conn.commit()
+
+        return self._cursor.rowcount > 0
+
     def add_tiles(
         self,
         tiles: Iterable[tuple[int, int, int, bytes]],

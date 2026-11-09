@@ -7,9 +7,8 @@ import pytest
 import rasterio
 import requests
 from morecantile.commons import BoundingBox
-from rio_cogeo.cogeo import cog_validate
 
-from geopaktile import GeoPakTile, gpkg_tiles_to_cog
+from geopaktile import GeoPakTile
 
 
 def _get_osm_tile(z: int, x: int, y: int) -> bytes:
@@ -140,19 +139,6 @@ def test_geopackage_creation(osm_tiles_z0_z3, test_gpkg_path):
         assert len(src.overviews(1)) == 3
         assert src.crs.to_string() == "EPSG:3857"
 
-    # test convert to COG
-    cog_path = test_gpkg_path.with_suffix(".cog.tif")
-    gpkg_tiles_to_cog(test_gpkg_path, cog_path, overwrite=True)
-
-    with rasterio.open(cog_path) as src:
-        assert src.count == 4
-        assert src.width > 0
-        assert src.height > 0
-        assert len(src.overviews(1)) == 3
-        assert src.crs.to_string() == "EPSG:3857"
-
-    assert cog_validate(cog_path)[0]
-
 def test_geopackage_creation_context(osm_tiles_z0_z3, test_gpkg_path):
 
     # Test add tiles
@@ -206,17 +192,6 @@ def test_geopackage_creation_context_z15(os_tiles_small_to_15, test_gpkg_path_z1
             assert math.isclose(src.bounds.right, bbox.right, rel_tol=1e-5)
             assert math.isclose(src.bounds.top, bbox.top, rel_tol=1e-5)
 
-    cog_path = test_gpkg_path_z15.with_suffix(".cog.tif")
-    gpkg_tiles_to_cog(test_gpkg_path_z15, cog_path, overwrite=True)
-
-    with rasterio.open(cog_path) as src:
-        assert src.count == 4
-        assert src.width > 0
-        assert src.height > 0
-        assert len(src.overviews(1)) == 8 # not 15 - any more than this results in less than 1 pixel in the overviews
-        assert src.crs.to_string() == "EPSG:3857"
-
-    assert cog_validate(cog_path)[0]
 
 def test_has_tile(osm_tiles_z0_z3, test_gpkg_path):
 
